@@ -1,0 +1,41 @@
+name: server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: server
+
+      - name: 构建前端
+        working-directory: web
+        run: npm ci && npm run build
+
+      - name: 构建服务端
+        run: cargo build --release -p shiyin-server
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shiyin-server-linux-x64
+          path: target/release/shiyin
+          if-no-files-found: error
