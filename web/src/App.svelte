@@ -253,7 +253,7 @@
     padding: 12px 24px 48px;
   }
   .view {
-    animation: rise var(--t) var(--ease-out) both;
+    animation: rise var(--t) var(--ease-out) backwards;
   }
   .error {
     display: flex;

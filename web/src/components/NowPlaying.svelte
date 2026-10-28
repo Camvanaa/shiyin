@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import Slider from './Slider.svelte';
   import { player } from '../lib/player.svelte';
@@ -15,24 +16,19 @@
   let scrub = $state<number | null>(null);
   let tint = $state('');
 
-  // 逐帧读取播放时间，只在行变化时更新
+  // 歌词行提前 0.15s 切换，视觉上更跟手。player.time 在播放时逐帧更新。
   $effect(() => {
-    const lines = player.lyric;
-    let raf = 0;
-    const tick = () => {
-      // 歌词行稍微提前 0.15s 切换，视觉上更跟手
-      const i = lineAt(lines, player.exactTime * 1000 + 150);
-      if (i !== active) active = i;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const i = player.expanded ? lineAt(player.lyric, player.time * 1000 + 150) : -1;
+    if (i !== active) active = i;
   });
 
   // 当前行居中，使用 transform 平移整个列表
   let offset = $state(0);
+  let boxH = $state(0);
   $effect(() => {
     const i = active;
+    void boxH;
+    void player.lyric;
     if (!lyricBox || userScrolling) return;
     const el = lyricBox.querySelector<HTMLElement>(`[data-i="${Math.max(0, i)}"]`);
     if (!el) return;
@@ -56,18 +52,29 @@
     im.onload = () => {
       try {
         const c = document.createElement('canvas');
-        c.width = c.height = 8;
+        c.width = c.height = 12;
         const g = c.getContext('2d', { willReadFrequently: true })!;
-        g.drawImage(im, 0, 0, 8, 8);
-        const d = g.getImageData(0, 0, 8, 8).data;
-        let r = 0, gg = 0, b = 0;
+        g.drawImage(im, 0, 0, 12, 12);
+        const d = g.getImageData(0, 0, 12, 12).data;
+        // 按饱和度加权取主色，避免平均成灰色
+        let r = 0, gg = 0, b = 0, wsum = 0;
         for (let i = 0; i < d.length; i += 4) {
-          r += d[i];
-          gg += d[i + 1];
-          b += d[i + 2];
+          const R = d[i], G = d[i + 1], B = d[i + 2];
+          const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+          const w = 0.08 + (mx - mn) / 255 + (mx > 40 && mx < 235 ? 0.3 : 0);
+          r += R * w;
+          gg += G * w;
+          b += B * w;
+          wsum += w;
         }
-        const n = d.length / 4;
-        tint = `${Math.round(r / n)} ${Math.round(gg / n)} ${Math.round(b / n)}`;
+        r /= wsum;
+        gg /= wsum;
+        b /= wsum;
+        // 亮度过低时整体提亮，保证背景有颜色
+        const lum = 0.299 * r + 0.587 * gg + 0.114 * b;
+        const k = lum < 90 ? 90 / Math.max(lum, 1) : lum > 170 ? 170 / lum : 1;
+        const ch = (v: number) => Math.min(255, Math.round(v * k));
+        tint = `${ch(r)} ${ch(gg)} ${ch(b)}`;
       } catch {
         tint = '';
       }
@@ -100,7 +107,7 @@
       <div class="left">
         {#key t.id}
           <div class="art" class:paused={!player.playing}>
-            <img src={img(t.cover, 400)} alt="" />
+            <img use:fade src={img(t.cover, 400)} alt="" decoding="async" />
           </div>
         {/key}
         <div class="meta">
@@ -131,7 +138,7 @@
         </div>
       </div>
 
-      <div class="lyric" bind:this={lyricBox} onwheel={onWheel}>
+      <div class="lyric" bind:this={lyricBox} bind:clientHeight={boxH} onwheel={onWheel}>
         {#if player.lyric.length}
           <div class="lines" class:free={userScrolling} style:transform="translateY({offset}px)">
             {#each player.lyric as l, i}
@@ -178,10 +185,11 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(120% 90% at 20% 30%, rgb(var(--tint) / 0.75), transparent 70%),
-      radial-gradient(90% 80% at 85% 80%, rgb(var(--tint) / 0.45), transparent 70%),
-      linear-gradient(rgb(var(--tint) / 0.25), rgb(0 0 0 / 0.6)),
-      #141414;
+      radial-gradient(80% 70% at 18% 28%, rgb(var(--tint) / 0.95), transparent 72%),
+      radial-gradient(70% 70% at 88% 85%, rgb(var(--tint) / 0.6), transparent 70%),
+      radial-gradient(60% 60% at 80% 10%, rgb(var(--tint) / 0.35), transparent 70%),
+      #101010;
+    filter: saturate(1.6) brightness(0.9);
     transition: background var(--t-slow) var(--ease);
     pointer-events: none;
   }
@@ -189,7 +197,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: rgb(0 0 0 / 0.28);
+    background: linear-gradient(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.45));
   }
   header {
     position: relative;

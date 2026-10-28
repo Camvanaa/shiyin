@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import SearchBox from './SearchBox.svelte';
   import { app } from '../lib/app.svelte';
@@ -71,7 +72,7 @@
 {#snippet card(h: HistoryEntry, i: number)}
   <button class="card" style:--d="{i * 30}ms" onclick={() => app.submit(h.q)}>
     <span class="cover">
-      {#if h.cover}<img src={img(h.cover, 160)} alt="" loading="lazy" decoding="async" />{/if}
+      {#if h.cover}<img use:fade src={img(h.cover, 160)} alt="" loading="lazy" decoding="async" />{/if}
     </span>
     <span class="card-title ellipsis">{h.title}</span>
     <span class="card-sub">{kindLabel[h.kind]}</span>
@@ -83,10 +84,12 @@
     padding: 8vh 8px 40px;
   }
   .hero {
+    position: relative;
+    z-index: 10;
     max-width: 640px;
     margin: 0 auto 48px;
     text-align: center;
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
   }
   h1 {
     margin: 0;
@@ -102,7 +105,7 @@
   }
   section {
     margin-top: 36px;
-    animation: rise var(--t-slow) var(--ease-out) 60ms both;
+    animation: rise var(--t-slow) var(--ease-out) 60ms backwards;
   }
   .sec-head {
     display: flex;
@@ -131,7 +134,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    animation: rise var(--t) var(--ease-out) both;
+    animation: rise var(--t) var(--ease-out) backwards;
     animation-delay: var(--d);
     transition:
       background-color var(--t-fast) var(--ease),
@@ -153,7 +156,7 @@
     flex-direction: column;
     text-align: left;
     min-width: 0;
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
     animation-delay: var(--d);
   }
   .cover {
@@ -198,7 +201,7 @@
     border-radius: var(--r-lg);
     background: var(--bg-2);
     color: var(--fg);
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
     animation-delay: var(--d);
     transition:
       background-color var(--t-fast) var(--ease),

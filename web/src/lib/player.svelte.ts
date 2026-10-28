@@ -32,13 +32,25 @@ class Player {
     const a = new Audio();
     a.preload = 'auto';
     a.volume = settings.volume;
-    a.addEventListener('play', () => (this.playing = true));
-    a.addEventListener('pause', () => (this.playing = false));
+    a.addEventListener('play', () => {
+      this.playing = true;
+      this.#startTicker();
+    });
+    a.addEventListener('pause', () => {
+      this.playing = false;
+      this.time = a.currentTime;
+      this.#syncPosition();
+    });
     a.addEventListener('waiting', () => (this.loading = true));
     a.addEventListener('playing', () => (this.loading = false));
     a.addEventListener('canplay', () => (this.loading = false));
     a.addEventListener('durationchange', () => (this.duration = isFinite(a.duration) ? a.duration : 0));
-    a.addEventListener('timeupdate', () => (this.time = a.currentTime));
+    // 播放时由 rAF 更新进度，暂停或后台时退回 timeupdate
+    a.addEventListener('timeupdate', () => {
+      if (a.paused || document.hidden) this.time = a.currentTime;
+    });
+    a.addEventListener('seeked', () => this.#syncPosition());
+    a.addEventListener('ratechange', () => this.#syncPosition());
     a.addEventListener('progress', () => {
       if (a.buffered.length) this.buffered = a.buffered.end(a.buffered.length - 1);
     });
@@ -55,9 +67,30 @@ class Player {
     this.#bindMediaSession();
   }
 
-  /** 供歌词高频读取，不经过响应式系统 */
-  get exactTime() {
-    return this.#audio.currentTime;
+  #raf = 0;
+  #startTicker() {
+    if (this.#raf) return;
+    const tick = () => {
+      if (this.#audio.paused) {
+        this.#raf = 0;
+        return;
+      }
+      if (!document.hidden) this.time = this.#audio.currentTime;
+      this.#raf = requestAnimationFrame(tick);
+    };
+    this.#raf = requestAnimationFrame(tick);
+    this.#syncPosition();
+  }
+
+  #syncPosition() {
+    const ms = navigator.mediaSession;
+    const a = this.#audio;
+    if (!ms?.setPositionState || !isFinite(a.duration) || a.duration <= 0) return;
+    try {
+      ms.setPositionState({ duration: a.duration, position: Math.min(a.currentTime, a.duration), playbackRate: a.playbackRate });
+    } catch {
+      /* 某些 WebView 不支持 */
+    }
   }
 
   get volume() {
@@ -273,11 +306,20 @@ class Player {
   #bindMediaSession() {
     const ms = navigator.mediaSession;
     if (!ms) return;
-    ms.setActionHandler('play', () => this.toggle());
-    ms.setActionHandler('pause', () => this.toggle());
+    ms.setActionHandler('play', () => this.#audio.play());
+    ms.setActionHandler('pause', () => this.#audio.pause());
     ms.setActionHandler('previoustrack', () => this.prev());
     ms.setActionHandler('nexttrack', () => this.next());
-    ms.setActionHandler('seekto', (d) => d.seekTime != null && this.seek(d.seekTime));
+    const safe = (a: MediaSessionAction, h: MediaSessionActionHandler) => {
+      try {
+        ms.setActionHandler(a, h);
+      } catch {
+        /* 不支持的动作 */
+      }
+    };
+    safe('seekto', (d) => d.seekTime != null && this.seek(d.seekTime));
+    safe('seekbackward', (d) => this.seek(this.#audio.currentTime - (d.seekOffset ?? 10)));
+    safe('seekforward', (d) => this.seek(this.#audio.currentTime + (d.seekOffset ?? 10)));
   }
 
   #updateMetadata() {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import { app } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
@@ -18,7 +19,7 @@
 
 <div class="song">
   <div class="art">
-    <img src={img(track.cover, 320)} alt="" width="320" height="320" decoding="async" />
+    <img use:fade src={img(track.cover, 320)} alt="" width="320" height="320" decoding="async" />
   </div>
   <div class="info">
     <div class="eyebrow">歌曲</div>
@@ -85,7 +86,7 @@
     gap: 40px;
     align-items: center;
     padding: 16px 8px 32px;
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
   }
   .art {
     width: 280px;
@@ -173,7 +174,7 @@
   .lyric {
     padding: 8px;
     max-width: 640px;
-    animation: rise var(--t-slow) var(--ease-out) 80ms both;
+    animation: rise var(--t-slow) var(--ease-out) 80ms backwards;
   }
   h2 {
     font: 600 20px var(--font-display);

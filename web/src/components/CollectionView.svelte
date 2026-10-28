@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import TrackList from './TrackList.svelte';
   import { app } from '../lib/app.svelte';
@@ -88,7 +89,7 @@
 <header class="head" class:noart={!cover}>
   {#if cover}
     <div class="art">
-      <img src={img(cover, 220)} alt="" width="220" height="220" decoding="async" />
+      <img use:fade src={img(cover, 220)} alt="" width="220" height="220" decoding="async" />
     </div>
   {/if}
   <div class="info">
@@ -156,7 +157,7 @@
     gap: 32px;
     align-items: flex-end;
     padding: 8px 8px 28px;
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
   }
   .head.noart {
     padding-top: 16px;

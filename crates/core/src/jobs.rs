@@ -109,6 +109,10 @@ struct Job {
     opts: DownloadOptions,
     cancels: HashMap<usize, Cancel>,
     speed_window: (Instant, u64),
+    workers: usize,
+    finished_at: Option<Instant>,
+    /// 已被 worker 领取但还没开始下载的歌曲
+    claimed: std::collections::HashSet<usize>,
 }
 
 /// 任务完成后的处理（Web 版用来打包 ZIP）。返回产物路径。
@@ -232,20 +236,50 @@ impl JobManager {
             opts: job.opts,
             cancels: HashMap::new(),
             speed_window: (Instant::now(), 0),
+            workers: 0,
+            finished_at: None,
+            claimed: Default::default(),
         });
         self.bump();
         self.spawn_items(id);
         id
     }
 
+    /// 每个任务最多启动 10 个 worker，worker 依次领取等待中的歌曲，
+    /// 全局并发由信号量控制。大歌单不会一次创建上千个异步任务。
     fn spawn_items(&self, id: u64) {
-        let n = {
-            let jobs = self.inner.jobs.lock().unwrap();
-            jobs.iter().find(|j| j.snap.id == id).map(|j| j.items.len()).unwrap_or(0)
-        };
-        for idx in 0..n {
+        let workers = self
+            .with_job(id, |job| {
+                let waiting = job.snap.items.iter().filter(|i| i.status == Status::Waiting).count();
+                let n = waiting.min(10).saturating_sub(job.workers);
+                job.workers += n;
+                n
+            })
+            .unwrap_or(0);
+        for _ in 0..workers {
             let me = self.clone();
-            tokio::spawn(async move { me.run_item(id, idx).await });
+            tokio::spawn(async move {
+                me.worker(id).await;
+                me.with_job(id, |job| job.workers -= 1);
+            });
+        }
+    }
+
+    async fn worker(&self, id: u64) {
+        loop {
+            let next = self.with_job(id, |job| {
+                if job.snap.status == Status::Paused || job.snap.status == Status::Cancelled {
+                    return None;
+                }
+                let claimed = &job.claimed;
+                let idx = (0..job.snap.items.len())
+                    .find(|i| job.snap.items[*i].status == Status::Waiting && !claimed.contains(i))?;
+                job.claimed.insert(idx);
+                Some(idx)
+            });
+            let Some(Some(idx)) = next else { return };
+            self.run_item(id, idx).await;
+            self.with_job(id, |job| job.claimed.remove(&idx));
         }
     }
 
@@ -329,6 +363,7 @@ impl JobManager {
                 if !pending && !matches!(job.snap.status, Status::Paused | Status::Cancelled) {
                     job.snap.status = if job.snap.completed > 0 { Status::Done } else { Status::Failed };
                     job.snap.speed = 0;
+                    job.finished_at = Some(Instant::now());
                     return Some(job.snap.clone());
                 }
                 if !job.snap.items.iter().any(|i| i.status == Status::Running) {
@@ -385,6 +420,7 @@ impl JobManager {
                 return;
             }
             job.snap.status = Status::Cancelled;
+            job.finished_at = Some(Instant::now());
             job.snap.speed = 0;
             for c in job.cancels.values() {
                 c.cancel();
@@ -414,6 +450,7 @@ impl JobManager {
                 if any {
                     job.snap.status = Status::Waiting;
                     job.snap.artifact = None;
+                    job.finished_at = None;
                     job.snap.failed = 0;
                 }
                 any
@@ -434,6 +471,25 @@ impl JobManager {
         drop(jobs);
         self.bump();
         Some(j.snap)
+    }
+
+    /// 移除结束时间早于 `age` 之前的任务
+    pub fn clear_finished_before(&self, age: std::time::Duration) -> Vec<JobSnapshot> {
+        let now = Instant::now();
+        let mut jobs = self.inner.jobs.lock().unwrap();
+        let mut removed = Vec::new();
+        jobs.retain(|j| {
+            let old = j.finished_at.is_some_and(|t| now.duration_since(t) >= age);
+            if old {
+                removed.push(j.snap.clone());
+            }
+            !old
+        });
+        drop(jobs);
+        if !removed.is_empty() {
+            self.bump();
+        }
+        removed
     }
 
     pub fn clear_finished(&self) -> Vec<JobSnapshot> {

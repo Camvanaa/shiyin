@@ -103,10 +103,26 @@ pub fn sanitize(name: &str) -> String {
         .chars()
         .map(|c| if matches!(c, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control() { '_' } else { c })
         .collect();
-    let s = s.trim().trim_end_matches('.').trim();
-    let s: String = s.chars().take(180).collect();
+    // 按字节截断到 150，避免 Windows 路径过长；截断后再去掉首尾空格和点
+    let mut cut = String::new();
+    for c in s.trim().chars() {
+        if cut.len() + c.len_utf8() > 150 {
+            break;
+        }
+        cut.push(c);
+    }
+    let s = cut.trim().trim_end_matches(['.', ' ']).to_owned();
     if s.is_empty() {
-        "untitled".into()
+        return "untitled".into();
+    }
+    // Windows 保留设备名
+    let stem = s.split('.').next().unwrap_or("").to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit());
+    if reserved {
+        format!("_{s}")
     } else {
         s
     }
@@ -124,14 +140,17 @@ pub fn render_template(template: &str, item: &DownloadItem) -> String {
     )
 }
 
-fn unique_path(dir: &Path, base: &str, ext: &str) -> PathBuf {
-    let mut p = dir.join(format!("{base}.{ext}"));
-    let mut n = 2;
-    while p.exists() {
-        p = dir.join(format!("{base} ({n}).{ext}"));
-        n += 1;
+/// 以独占创建的方式占用一个不重名的路径，避免并发下载同名歌曲时互相覆盖。
+fn claim_unique_path(dir: &Path, base: &str, ext: &str) -> std::io::Result<PathBuf> {
+    for n in 1..10_000 {
+        let p = if n == 1 { dir.join(format!("{base}.{ext}")) } else { dir.join(format!("{base} ({n}).{ext}")) };
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&p) {
+            Ok(_) => return Ok(p),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
     }
-    p
+    Err(std::io::Error::other("同名文件过多"))
 }
 
 /// 封面按尺寸请求，由 CDN 完成缩放，本地不解码图片。
@@ -199,7 +218,7 @@ pub async fn download(
 
     tokio::fs::create_dir_all(dir).await?;
     let base = render_template(&opts.template, item);
-    let part = dir.join(format!(".{}.{}.part", base, t.id));
+    let part = dir.join(format!(".shiyin-{}-{}.part", t.id, rand::random::<u32>()));
 
     let result: Result<Downloaded> = async {
         let resp = api.http().get(&song.url).timeout(Duration::from_secs(60 * 30)).send().await?;
@@ -239,7 +258,12 @@ pub async fn download(
                 .map_err(|e| Error::Tag(e.to_string()))??;
         }
 
-        let path = unique_path(dir, &base, format.ext());
+        let (d, b, ext) = (dir.to_path_buf(), base.clone(), format.ext());
+        let path = tokio::task::spawn_blocking(move || claim_unique_path(&d, &b, ext))
+            .await
+            .map_err(|e| Error::Tag(e.to_string()))??;
+        // Windows 上 rename 不能覆盖已存在文件，先删除占位文件
+        let _ = tokio::fs::remove_file(&path).await;
         tokio::fs::rename(&part, &path).await?;
         let file_name = path.file_name().unwrap().to_string_lossy().into_owned();
 
@@ -279,5 +303,9 @@ mod tests {
     fn sanitizes() {
         assert_eq!(sanitize(" a/b:c?. "), "a_b_c_");
         assert_eq!(sanitize("..."), "untitled");
+        assert_eq!(sanitize("con"), "_con");
+        assert_eq!(sanitize("COM1.txt"), "_COM1.txt");
+        assert_eq!(sanitize("Console"), "Console");
+        assert!(sanitize(&"长".repeat(100)).len() <= 150);
     }
 }

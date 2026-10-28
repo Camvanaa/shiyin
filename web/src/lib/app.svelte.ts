@@ -7,7 +7,7 @@ import type { Account, Collection, JobSummary, Track } from './types';
 
 export type View =
   | { kind: 'home' }
-  | { kind: 'search'; q: string; tracks: Track[]; done: boolean }
+  | { kind: 'search'; q: string; tracks: Track[]; done: boolean; offset: number }
   | { kind: 'song'; track: Track }
   | { kind: 'collection'; data: Collection };
 
@@ -143,7 +143,7 @@ class AppState {
     const tracks = await this.#run(() => api.search(q, settings.searchLimit));
     if (!tracks) return;
     remember({ q, title: q, kind: 'query' });
-    this.#go({ kind: 'search', q, tracks, done: tracks.length < settings.searchLimit });
+    this.#go({ kind: 'search', q, tracks, done: tracks.length < settings.searchLimit, offset: tracks.length });
   }
 
   async searchMore() {
@@ -151,7 +151,8 @@ class AppState {
     if (v.kind !== 'search' || v.done || this.loading) return;
     this.loading = true;
     try {
-      const more = await api.search(v.q, settings.searchLimit, v.tracks.length);
+      const more = await api.search(v.q, settings.searchLimit, v.offset);
+      v.offset += more.length;
       const ids = new Set(v.tracks.map((t) => t.id));
       v.tracks.push(...more.filter((t) => !ids.has(t.id)));
       v.done = more.length < settings.searchLimit;

@@ -132,6 +132,9 @@
     position: relative;
     width: 100%;
   }
+  .box.open {
+    z-index: 40;
+  }
   .field {
     position: relative;
     display: flex;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
@@ -29,7 +30,7 @@
   } = $props();
 
   const ROW = 56;
-  const OVERSCAN = 8;
+  const OVERSCAN = 10;
 
   let host = $state<HTMLElement>();
   let start = $state(0);
@@ -126,7 +127,7 @@
         <button class="lead" onclick={() => onplay(idx)} aria-label="播放 {t.name}">
           {#if showCover}
             <span class="cover">
-              <img src={img(t.cover, 40)} alt="" loading="lazy" decoding="async" width="40" height="40" />
+              <img use:fade src={img(t.cover, 40)} alt="" decoding="async" width="40" height="40" />
             </span>
           {:else}
             <span class="num tabular">{numbered ? idx + 1 : ''}</span>
@@ -232,13 +233,13 @@
     opacity: 0;
   }
   .row.active {
-    background: var(--accent-soft);
+    background: var(--bg-2);
   }
   .row.active .name {
     color: var(--accent);
   }
   .row.enter {
-    animation: rise var(--t-slow) var(--ease-out) both;
+    animation: rise var(--t-slow) var(--ease-out) backwards;
     animation-delay: var(--d);
   }
 

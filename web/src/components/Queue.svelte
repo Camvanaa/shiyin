@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
   import { app } from '../lib/app.svelte';
@@ -30,7 +31,7 @@
       {#each player.queue as t, i (t.id)}
         <div class="row" class:cur={i === player.index}>
           <button class="main" onclick={() => player.playAt(i)}>
-            <img src={img(t.cover, 36)} alt="" width="36" height="36" loading="lazy" />
+            <img use:fade src={img(t.cover, 36)} alt="" width="36" height="36" loading="lazy" decoding="async" />
             <span class="txt">
               <span class="name ellipsis">{t.name}</span>
               <span class="sub ellipsis">{artists(t)}</span>
@@ -64,7 +65,7 @@
     background: var(--hover);
   }
   .row.cur {
-    background: var(--accent-soft);
+    background: var(--bg-2);
   }
   .row.cur .name {
     color: var(--accent);

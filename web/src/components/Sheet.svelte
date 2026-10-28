@@ -9,6 +9,7 @@
     title,
     side = false,
     width = 520,
+    dismissible = true,
     children,
     actions,
   }: {
@@ -17,6 +18,8 @@
     title: string;
     side?: boolean;
     width?: number;
+    /** 为 false 时不显示关闭按钮，点遮罩和 Esc 也不关闭 */
+    dismissible?: boolean;
     children: Snippet;
     actions?: Snippet;
   } = $props();
@@ -39,7 +42,7 @@
   });
 
   function onKey(e: KeyboardEvent) {
-    if (open && e.key === 'Escape') {
+    if (open && dismissible && e.key === 'Escape') {
       e.stopPropagation();
       onclose();
     }
@@ -49,13 +52,15 @@
 <svelte:window onkeydown={onKey} />
 
 {#if mounted}
-  <div class="scrim" class:closing onclick={onclose} role="presentation"></div>
+  <div class="scrim" class:closing onclick={() => dismissible && onclose()} role="presentation"></div>
   <div class="sheet" class:side class:closing style:--w="{width}px" role="dialog" aria-modal="true" aria-label={title}>
     <header>
       <h2>{title}</h2>
       <div class="acts">
         {#if actions}{@render actions()}{/if}
-        <button class="icon-btn" onclick={onclose} aria-label="关闭"><Icon name="close" /></button>
+        {#if dismissible}
+          <button class="icon-btn" onclick={onclose} aria-label="关闭"><Icon name="close" /></button>
+        {/if}
       </div>
     </header>
     <div class="content">{@render children()}</div>

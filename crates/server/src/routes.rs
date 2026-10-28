@@ -62,6 +62,19 @@ pub fn router(app: Arc<AppState>) -> Router {
         zip_files(&snap.dir, &snap.title, &files).ok()
     });
     let jobs = JobManager::new(app.api.clone(), 3, Some(finisher));
+
+    // 定期清理结束超过 2 小时的任务及其临时文件
+    let jm = jobs.clone();
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(600));
+        loop {
+            tick.tick().await;
+            for s in jm.clear_finished_before(Duration::from_secs(7200)) {
+                let _ = tokio::fs::remove_dir_all(&s.dir).await;
+            }
+        }
+    });
+
     let ctx = Ctx { app: app.clone(), jobs };
 
     let api = Router::new()
@@ -244,8 +257,11 @@ struct JobBody {
 }
 
 async fn add_job(State(c): State<Ctx>, Json(b): Json<JobBody>) -> R<Value> {
-    if b.items.is_empty() || b.items.len() > 5000 {
-        return Err(ApiError(StatusCode::BAD_REQUEST, "歌曲数量无效".into()));
+    if b.items.is_empty() || b.items.len() > 1000 {
+        return Err(ApiError(StatusCode::BAD_REQUEST, "单次最多下载 1000 首".into()));
+    }
+    if c.jobs.summaries().len() >= 20 {
+        return Err(ApiError(StatusCode::TOO_MANY_REQUESTS, "任务过多，请先清除已完成的任务".into()));
     }
     if !shiyin_core::is_valid_level(&b.options.level) {
         return Err(ApiError(StatusCode::BAD_REQUEST, "未知音质".into()));
