@@ -1,0 +1,22 @@
+[package]
+name = "shiyin-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+futures-util.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+aes = "0.8"
+ecb = { version = "0.1", features = ["std"] }
+md-5 = "0.10"
+base64 = "0.22"
+id3 = { version = "1", default-features = false }
+metaflac = "0.2"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+rand = "0.8"
