@@ -46,7 +46,13 @@ async fn main() {
 
     let dir = data_dir();
     let store = CredentialStore::new(&dir);
-    let api = Netease::new();
+    let real_ip = std::env::var("SHIYIN_REAL_IP").ok().filter(|s| !s.is_empty()).map(|s| {
+        s.parse().unwrap_or_else(|_| {
+            eprintln!("SHIYIN_REAL_IP 不是合法的 IP 地址");
+            std::process::exit(2)
+        })
+    });
+    let api = Netease::new().with_real_ip(real_ip);
     api.set_music_u(store.load().or_else(|| std::env::var("MUSIC_U").ok()));
     let tmp = dir.join("tmp");
     let _ = std::fs::remove_dir_all(&tmp);

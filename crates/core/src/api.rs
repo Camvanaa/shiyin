@@ -19,6 +19,8 @@ const DEVICE_ID: &str = "pyncm!";
 pub struct Netease {
     http: reqwest::Client,
     music_u: Arc<RwLock<Option<String>>>,
+    /// 部署在海外时设置一个国内 IP，网易云据此判断版权地区
+    real_ip: Option<HeaderValue>,
 }
 
 fn s(v: &Value) -> String {
@@ -81,7 +83,12 @@ impl Netease {
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("http client");
-        Self { http, music_u: Arc::new(RwLock::new(None)) }
+        Self { http, music_u: Arc::new(RwLock::new(None)), real_ip: None }
+    }
+
+    pub fn with_real_ip(mut self, ip: Option<std::net::IpAddr>) -> Self {
+        self.real_ip = ip.and_then(|ip| HeaderValue::from_str(&ip.to_string()).ok());
+        self
     }
 
     pub fn http(&self) -> &reqwest::Client {
@@ -111,6 +118,9 @@ impl Netease {
         h.insert(USER_AGENT, HeaderValue::from_static("Mozilla/5.0"));
         h.insert(REFERER, HeaderValue::from_static("https://music.163.com/"));
         h.insert(COOKIE, self.cookie_header());
+        if let Some(ip) = &self.real_ip {
+            h.insert("X-Real-IP", ip.clone());
+        }
         h
     }
 
@@ -139,11 +149,15 @@ impl Netease {
         payload["header"] = Value::String(header.to_string());
         let api_path = path.replacen("/eapi/", "/api/", 1);
         let params = eapi_params(&api_path, &payload.to_string());
-        let resp = self
+        let mut rb = self
             .http
             .post(format!("https://interface3.music.163.com{path}"))
             .header(USER_AGENT, UA_PC)
-            .header(COOKIE, self.cookie_header())
+            .header(COOKIE, self.cookie_header());
+        if let Some(ip) = &self.real_ip {
+            rb = rb.header("X-Real-IP", ip.clone());
+        }
+        let resp = rb
             .form(&[("params", params)])
             .timeout(Duration::from_secs(20))
             .send()
@@ -201,6 +215,10 @@ impl Netease {
             size: u(&d["size"]),
             br: u(&d["br"]),
             format: s(&d["type"]).to_ascii_lowercase(),
+            trial: d["freeTrialInfo"]
+                .as_object()
+                .map(|t| (u(&t["start"]) , u(&t["end"])))
+                .map(|(a, b)| if b < 10_000 { (a * 1000, b * 1000) } else { (a, b) }),
         })
     }
 

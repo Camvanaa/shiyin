@@ -21,11 +21,13 @@ class Player {
   shuffle = $state(false);
   expanded = $state(false);
   quality = $state('');
+  /** 当前只能播放试听片段 */
+  trial = $state(false);
 
   current = $derived(this.index >= 0 ? (this.queue[this.index] ?? null) : null);
 
   #audio: HTMLAudioElement;
-  #urlCache = new Map<string, { url: string; level: string; exp: number }>();
+  #urlCache = new Map<string, { url: string; level: string; trial: boolean; exp: number }>();
   #token = 0;
 
   constructor() {
@@ -101,13 +103,13 @@ class Player {
     this.#audio.volume = settings.volume;
   }
 
-  async #resolveUrl(t: Track): Promise<{ url: string; level: string }> {
+  async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean }> {
     const key = `${t.id}:${settings.playLevel}`;
     const c = this.#urlCache.get(key);
     if (c && c.exp > Date.now()) return c;
     const r = await api.songUrl(t.id, settings.playLevel);
     // 网易云的地址一般 20 分钟后失效，保守缓存 15 分钟
-    const v = { url: r.url, level: r.level, exp: Date.now() + 15 * 60_000 };
+    const v = { url: r.url, level: r.level, trial: !!r.trial, exp: Date.now() + 15 * 60_000 };
     this.#urlCache.set(key, v);
     return v;
   }
@@ -133,6 +135,8 @@ class Player {
       if (token !== this.#token) return;
       if (l) this.lyric = parseLyric(l.lrc, l.tlrc);
       this.quality = u.level;
+      this.trial = u.trial;
+      if (u.trial) toast.info(`「${t.name}」只能试听片段`, '登录会员账号后可播放完整歌曲');
       this.#audio.src = u.url;
       if (resume) this.#audio.currentTime = resume;
       await this.#audio.play().catch(() => {});

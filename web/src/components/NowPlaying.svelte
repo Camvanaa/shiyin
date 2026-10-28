@@ -99,7 +99,10 @@
     <div class="bg"></div>
     <header>
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2} /></button>
-      {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
+      <span class="tags">
+        {#if player.trial}<span class="q">试听</span>{/if}
+        {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
+      </span>
       <button class="icon-btn" onclick={() => (app.sheet = 'queue')} aria-label="播放列表"><Icon name="queue" /></button>
     </header>
 
@@ -213,6 +216,10 @@
   header .icon-btn:hover {
     background: rgb(255 255 255 / 0.12);
     color: #fff;
+  }
+  .tags {
+    display: flex;
+    gap: 6px;
   }
   .q {
     font-size: 11px;

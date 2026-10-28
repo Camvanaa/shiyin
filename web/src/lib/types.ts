@@ -34,6 +34,8 @@ export interface SongUrl {
   size: number;
   br: number;
   format: string;
+  /** 试听片段的起止毫秒，非空表示不是完整歌曲 */
+  trial: [number, number] | null;
 }
 
 export interface Lyric {

@@ -212,6 +212,9 @@ pub async fn download(
     );
     let song = song?;
     cancel.check()?;
+    if song.trial.is_some() {
+        return Err(Error::Invalid("只能获取试听片段，需要登录会员账号".into()));
+    }
     if !is_allowed_media_url(&song.url) {
         return Err(Error::Invalid("音频地址不在允许的域名内".into()));
     }

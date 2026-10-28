@@ -60,6 +60,8 @@ pub struct SongUrl {
     pub br: u64,
     /// 文件类型，例如 "mp3"、"flac"
     pub format: String,
+    /// 非空表示只返回了试听片段（毫秒区间）
+    pub trial: Option<(u64, u64)>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
