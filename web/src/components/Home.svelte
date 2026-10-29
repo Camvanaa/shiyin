@@ -42,7 +42,7 @@
         {#each recent as h, i (h.at)}
           <button class="card" style:--d="{i * 22}ms" onclick={() => app.submit(h.q)}>
             <span class="art">
-              {#if h.cover}<img use:fade src={img(h.cover, 200)} alt="" loading="lazy" decoding="async" />{/if}
+              {#if h.cover}<img use:fade src={img(h.cover, 200)} alt="" decoding="async" />{/if}
             </span>
             <span class="card-title ellipsis">{h.title}</span>
             <span class="card-sub ellipsis">{kindLabel[h.kind]}</span>
@@ -62,7 +62,7 @@
       </div>
     {:else}
       <div class="shelf">
-        {#each feed.playlists as p, i (p.id)}
+        {#each feed.playlists.slice(0, 5) as p, i (p.id)}
           {@render playlistCard(p, i)}
         {/each}
       </div>
@@ -96,7 +96,7 @@
   <section>
     <div class="sec-head"><h2>排行榜</h2></div>
     <div class="shelf charts">
-      {#each charts as c, i (c.id)}
+      {#each charts.slice(0, 5) as c, i (c.id)}
         {@render playlistCard(c, i)}
       {/each}
     </div>
@@ -106,7 +106,7 @@
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
   <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection('playlist', p.id)}>
     <span class="art">
-      {#if p.cover}<img use:fade src={img(p.cover, 200)} alt="" loading="lazy" decoding="async" />{/if}
+      {#if p.cover}<img use:fade src={img(p.cover, 200)} alt="" decoding="async" />{/if}
       <span class="play-badge" aria-hidden="true"><Icon name="play" /></span>
     </span>
     <span class="card-title clamp2">{p.name}</span>
@@ -119,7 +119,7 @@
   <div class="song" class:active class:off={t.availability === 'none'}>
     <button class="s-main" onclick={() => playNew(i)}>
       <span class="s-art">
-        <img use:fade src={img(t.cover, 56)} alt="" loading="lazy" decoding="async" width="48" height="48" />
+        <img use:fade src={img(t.cover, 56)} alt="" decoding="async" width="48" height="48" />
         <span class="s-over"><Icon name={active && player.playing ? 'pause' : 'play'} /></span>
       </span>
       <span class="s-txt">
@@ -179,9 +179,7 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 24px 18px;
   }
-  .shelf.charts {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+
   .card {
     display: flex;
     flex-direction: column;
@@ -408,8 +406,7 @@
     }
   }
   @media (max-width: 640px) {
-    .shelf,
-    .shelf.charts {
+    .shelf {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .songs {
