@@ -3,7 +3,7 @@ import { settings, downloadOptions } from './settings.svelte';
 import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
 import { artists } from './format';
-import type { Account, Collection, JobSummary, Track } from './types';
+import type { Account, Collection, HomeFeed, JobSummary, Track } from './types';
 
 export type View =
   | { kind: 'home' }
@@ -21,6 +21,7 @@ class AppState {
   account = $state<Account | null>(null);
   hasCredential = $state(false);
   jobs = $state<JobSummary[]>([]);
+  feed = $state<HomeFeed | null>(null);
   /** 视图切换计数，用于触发进入动画 */
   viewKey = $state(0);
 
@@ -34,6 +35,7 @@ class AppState {
   async init() {
     if (isTauri) import('./desktop.svelte').then((m) => m.initDesktop());
     try {
+      api.home().then((f) => (this.feed = f)).catch(() => {});
       await this.refreshAccount();
       this.#startJobs();
       api.setConcurrency(settings.concurrency).catch(() => {});

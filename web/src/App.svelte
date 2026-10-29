@@ -67,7 +67,7 @@
       </button>
     </div>
     <div class="top-mid">
-      {#if v.kind !== 'home'}<SearchBox />{/if}
+      <SearchBox />
     </div>
     <div class="top-right">
       <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">

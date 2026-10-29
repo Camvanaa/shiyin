@@ -4,8 +4,6 @@
   import { forget, suggest, type HistoryEntry } from '../lib/history.svelte';
   import { img } from '../lib/format';
 
-  let { large = false, autofocus = false }: { large?: boolean; autofocus?: boolean } = $props();
-
   let value = $state('');
   let focused = $state(false);
   let cursor = $state(-1);
@@ -14,10 +12,6 @@
   const items = $derived(focused ? suggest(value) : []);
   const open = $derived(focused && items.length > 0);
   const looksLikeLink = $derived(/music\.163\.com|163cn\.tv/.test(value));
-
-  $effect(() => {
-    if (autofocus) input?.focus();
-  });
 
   function submit(q = value) {
     if (!q.trim()) return;
@@ -77,7 +71,7 @@
 
 <svelte:window onkeydown={onGlobalKey} />
 
-<div class="box" class:large class:focused class:open>
+<div class="box" class:focused class:open>
   <div class="field">
     <span class="lead">
       {#if app.loading}<span class="spinner"></span>{:else}<Icon name={looksLikeLink ? 'link' : 'search'} />{/if}
@@ -99,7 +93,7 @@
       <button class="clear" onmousedown={(e) => e.preventDefault()} onclick={() => ((value = ''), input?.focus())} aria-label="清空">
         <Icon name="close" stroke={2.2} />
       </button>
-    {:else if !large}
+    {:else}
       <kbd>⌘K</kbd>
     {/if}
   </div>
@@ -147,16 +141,9 @@
       box-shadow var(--t) var(--ease),
       border-radius var(--t) var(--ease);
   }
-  .large .field {
-    height: 52px;
-    border-radius: var(--r-lg);
-  }
   .focused .field {
     background: var(--bg-elev);
     box-shadow: 0 0 0 1px var(--line-2), 0 0 0 4px var(--accent-soft);
-  }
-  .large.focused .field {
-    box-shadow: var(--shadow);
   }
   .lead {
     width: 36px;
@@ -165,16 +152,9 @@
     color: var(--fg-3);
     flex: none;
   }
-  .large .lead {
-    width: 52px;
-  }
   .lead :global(svg) {
     width: 17px;
     height: 17px;
-  }
-  .large .lead :global(svg) {
-    width: 20px;
-    height: 20px;
   }
   input {
     flex: 1;
@@ -184,10 +164,6 @@
     outline: 0;
     background: transparent;
     font-size: 14px;
-  }
-  .large input {
-    font-size: 17px;
-    letter-spacing: -0.015em;
   }
   input::placeholder {
     color: var(--fg-3);

@@ -23,6 +23,11 @@ fn e<E: ToString>(err: E) -> String {
 }
 
 #[tauri::command]
+async fn home(s: State<'_, Ctx>) -> R<shiyin_core::HomeFeed> {
+    s.api.home().await.map_err(e)
+}
+
+#[tauri::command]
 async fn resolve(s: State<'_, Ctx>, q: String) -> R<Resolved> {
     link::resolve(&s.api, &q).await.map_err(e)
 }
@@ -248,6 +253,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            home,
             resolve,
             search,
             song,

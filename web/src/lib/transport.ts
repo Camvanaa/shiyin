@@ -1,11 +1,12 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
-  Account, Collection, JobDetail, JobSummary, Lyric, NewJob, QrStart, QrState, Resolved, SongUrl, Track,
+  Account, Collection, HomeFeed, JobDetail, JobSummary, Lyric, NewJob, QrStart, QrState, Resolved, SongUrl, Track,
 } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 export interface Api {
+  home(): Promise<HomeFeed>;
   resolve(q: string): Promise<Resolved>;
   search(q: string, limit: number, offset?: number): Promise<Track[]>;
   song(id: number): Promise<Track>;
@@ -64,6 +65,7 @@ async function http<T>(method: string, path: string, body?: unknown, signal?: Ab
 const enc = encodeURIComponent;
 
 const httpApi: Api = {
+  home: () => http('GET', '/home'),
   resolve: (q) => http('GET', `/resolve?q=${enc(q)}`),
   search: (q, limit, offset = 0) => http('GET', `/search?q=${enc(q)}&limit=${limit}&offset=${offset}`),
   song: (id) => http('GET', `/song/${id}`),
@@ -128,6 +130,7 @@ async function tauriApi(): Promise<Api> {
       throw new Error(typeof e === 'string' ? e : (e?.message ?? String(e)));
     });
   return {
+    home: () => call('home'),
     resolve: (q) => call('resolve', { q }),
     search: (q, limit, offset = 0) => call('search', { q, limit, offset }),
     song: (id) => call('song', { id }),

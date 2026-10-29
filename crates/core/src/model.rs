@@ -137,3 +137,20 @@ pub const LEVELS: &[(&str, &str)] = &[
 pub fn is_valid_level(level: &str) -> bool {
     LEVELS.iter().any(|(k, _)| *k == level)
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistBrief {
+    pub id: u64,
+    pub name: String,
+    pub cover: String,
+    pub subtitle: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeFeed {
+    pub playlists: Vec<PlaylistBrief>,
+    pub charts: Vec<PlaylistBrief>,
+    pub new_songs: Vec<Track>,
+}

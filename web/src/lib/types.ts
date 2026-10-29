@@ -141,3 +141,16 @@ export const LEVELS: { value: string; label: string; hint: string }[] = [
   { value: 'jyeffect', label: '高清环绕声', hint: '需要会员' },
   { value: 'jymaster', label: '超清母带', hint: '需要会员' },
 ];
+
+export interface PlaylistBrief {
+  id: number;
+  name: string;
+  cover: string;
+  subtitle: string;
+}
+
+export interface HomeFeed {
+  playlists: PlaylistBrief[];
+  charts: PlaylistBrief[];
+  newSongs: Track[];
+}

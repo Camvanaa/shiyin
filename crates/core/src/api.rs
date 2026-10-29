@@ -21,6 +21,7 @@ pub struct Netease {
     music_u: Arc<RwLock<Option<String>>>,
     /// 部署在海外时设置一个国内 IP，网易云据此判断版权地区
     real_ip: Option<HeaderValue>,
+    home_cache: Arc<RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 fn s(v: &Value) -> String {
@@ -107,7 +108,12 @@ impl Netease {
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("http client");
-        Self { http, music_u: Arc::new(RwLock::new(None)), real_ip: None }
+        Self {
+            http,
+            music_u: Arc::new(RwLock::new(None)),
+            real_ip: None,
+            home_cache: Arc::new(RwLock::new(None)),
+        }
     }
 
     pub fn with_real_ip(mut self, ip: Option<std::net::IpAddr>) -> Self {
@@ -380,6 +386,99 @@ impl Netease {
             return Err(Error::Parse("登录成功但未获取到凭证".into()));
         }
         Ok((state, music_u))
+    }
+
+    /// 首页推荐内容：推荐歌单、官方榜单、最新音乐。内存缓存 15 分钟。
+    pub async fn home(&self) -> Result<HomeFeed> {
+        if let Some((t, feed)) = self.home_cache.read().unwrap().as_ref() {
+            if t.elapsed() < Duration::from_secs(900) {
+                return Ok(feed.clone());
+            }
+        }
+        let limit = [("limit", String::from("12"))];
+        let (pl, top, ns) = tokio::join!(
+            self.api_form("https://music.163.com/api/personalized/playlist", &limit),
+            self.api_form("https://music.163.com/api/toplist", &[]),
+            self.api_form("https://music.163.com/api/personalized/newsong", &limit),
+        );
+
+        let playlists = pl
+            .ok()
+            .and_then(|v| {
+                v["result"].as_array().map(|a| {
+                    a.iter()
+                        .take(10)
+                        .map(|x| PlaylistBrief {
+                            id: u(&x["id"]),
+                            name: s(&x["name"]),
+                            cover: s(&x["picUrl"]).replacen("http://", "https://", 1),
+                            subtitle: s(&x["copywriter"]),
+                        })
+                        .collect()
+                })
+            })
+            .unwrap_or_default();
+
+        let charts = top
+            .ok()
+            .and_then(|v| {
+                v["list"].as_array().map(|a| {
+                    a.iter()
+                        .take(8)
+                        .map(|x| PlaylistBrief {
+                            id: u(&x["id"]),
+                            name: s(&x["name"]),
+                            cover: s(&x["coverImgUrl"]).replacen("http://", "https://", 1),
+                            subtitle: s(&x["updateFrequency"]),
+                        })
+                        .collect()
+                })
+            })
+            .unwrap_or_default();
+
+        let new_songs = ns
+            .ok()
+            .and_then(|v| {
+                v["result"].as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| {
+                            let sg = &x["song"];
+                            if sg.is_null() {
+                                return None;
+                            }
+                            let fee = sg["fee"].as_i64().unwrap_or(0);
+                            let al = &sg["album"];
+                            Some(Track {
+                                id: u(&sg["id"]),
+                                name: s(&sg["name"]),
+                                alias: sg["alias"][0].as_str().filter(|a| !a.is_empty()).map(str::to_owned),
+                                artists: sg["artists"]
+                                    .as_array()
+                                    .map(|ar| ar.iter().map(|y| Artist { id: u(&y["id"]), name: s(&y["name"]) }).collect())
+                                    .unwrap_or_default(),
+                                album_id: u(&al["id"]),
+                                album: s(&al["name"]),
+                                cover: x["picUrl"]
+                                    .as_str()
+                                    .filter(|c| !c.is_empty())
+                                    .map(str::to_owned)
+                                    .unwrap_or_else(|| s(&al["picUrl"]))
+                                    .replacen("http://", "https://", 1),
+                                duration: u(&sg["duration"]),
+                                fee,
+                                availability: availability(fee, &sg["privilege"]),
+                            })
+                        })
+                        .collect()
+                })
+            })
+            .unwrap_or_default();
+
+        let feed = HomeFeed { playlists, charts, new_songs };
+        if !feed.playlists.is_empty() || !feed.charts.is_empty() {
+            *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
+        }
+        Ok(feed)
     }
 
     /// 跟随 163cn.tv 短链一次重定向。

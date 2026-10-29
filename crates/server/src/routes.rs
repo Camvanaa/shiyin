@@ -78,6 +78,7 @@ pub fn router(app: Arc<AppState>) -> Router {
     let ctx = Ctx { app: app.clone(), jobs };
 
     let api = Router::new()
+        .route("/home", get(home))
         .route("/resolve", get(resolve))
         .route("/search", get(search))
         .route("/song/{id}", get(song))
@@ -144,6 +145,10 @@ async fn static_file(uri: Uri) -> Response {
 #[derive(Deserialize)]
 struct Q {
     q: String,
+}
+
+async fn home(State(c): State<Ctx>) -> R<shiyin_core::HomeFeed> {
+    Ok(Json(c.app.api.home().await?))
 }
 
 async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<Value> {
