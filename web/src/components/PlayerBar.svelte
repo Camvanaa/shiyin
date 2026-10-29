@@ -4,6 +4,11 @@
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
   import { artists, duration, img } from '../lib/format';
+  import { isTauri } from '../lib/transport';
+
+  // 桌面版功能按需加载，Web 版不引入
+  let desk = $state<typeof import('../lib/desktop.svelte') | null>(null);
+  if (isTauri) import('../lib/desktop.svelte').then((m) => (desk = m));
 
   const t = $derived(player.current);
   let scrub = $state<number | null>(null);
@@ -84,6 +89,14 @@
         <button class="icon-btn sm" onclick={toggleMute} aria-label="静音"><Icon name={player.volume === 0 ? 'mute' : 'volume'} /></button>
         <div class="vol-slider"><Slider label="音量" value={player.volume} onchange={(v) => (player.volume = v)} oninput={(v) => v !== null && (player.volume = v)} /></div>
       </div>
+      {#if desk}
+        <button class="icon-btn sm" class:on={desk.desktop.lyrics} onclick={() => desk!.setLyrics(!desk!.desktop.lyrics)} title="桌面歌词" aria-label="桌面歌词">
+          <Icon name="subtitles" />
+        </button>
+        <button class="icon-btn sm" onclick={() => desk!.setMini(true)} title="迷你播放器" aria-label="迷你播放器">
+          <Icon name="mini" />
+        </button>
+      {/if}
       <button class="icon-btn sm" class:on={player.expanded} onclick={() => (player.expanded = !player.expanded)} title="歌词" aria-label="歌词">
         <Icon name="lyric" />
       </button>

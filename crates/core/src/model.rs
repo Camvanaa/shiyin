@@ -20,6 +20,22 @@ pub struct Track {
     pub duration: u64,
     /// 1 = VIP 歌曲，4 = 付费专辑，8 = 免费（低音质）
     pub fee: i64,
+    pub availability: Availability,
+}
+
+/// 当前账号下的可用性
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Availability {
+    /// 可完整播放
+    #[default]
+    Ok,
+    /// 只能试听或需要会员
+    Vip,
+    /// 需要单独购买
+    Paid,
+    /// 无版权，不可播放
+    None,
 }
 
 impl Track {

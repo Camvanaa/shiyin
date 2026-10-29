@@ -11,7 +11,7 @@ use std::time::Instant;
 use serde::Serialize;
 use tokio::sync::{watch, Semaphore};
 
-use crate::api::Netease;
+use crate::source::DynSource;
 use crate::download::{self, Cancel, DownloadItem, DownloadOptions};
 use crate::error::Error;
 
@@ -124,7 +124,7 @@ pub struct JobManager {
 }
 
 struct Inner {
-    api: Netease,
+    src: DynSource,
     jobs: Mutex<Vec<Job>>,
     slots: Arc<Semaphore>,
     limit: Mutex<usize>,
@@ -147,11 +147,11 @@ pub struct NewJob {
 }
 
 impl JobManager {
-    pub fn new(api: Netease, concurrency: usize, finisher: Option<Finisher>) -> Self {
+    pub fn new(src: DynSource, concurrency: usize, finisher: Option<Finisher>) -> Self {
         let c = concurrency.clamp(1, 10);
         Self {
             inner: Arc::new(Inner {
-                api,
+                src,
                 jobs: Mutex::new(Vec::new()),
                 slots: Arc::new(Semaphore::new(c)),
                 limit: Mutex::new(c),
@@ -307,7 +307,7 @@ impl JobManager {
 
             let mut last = Instant::now();
             let me = self.clone();
-            let res = download::download(&self.inner.api, &item, &opts, &dir, &cancel, move |done, total| {
+            let res = download::download(self.inner.src.as_ref(), &item, &opts, &dir, &cancel, move |done, total| {
                 // 限制更新频率，避免锁竞争
                 if last.elapsed().as_millis() < 120 && done < total {
                     return;

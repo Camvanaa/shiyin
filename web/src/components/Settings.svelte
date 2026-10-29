@@ -146,6 +146,29 @@
     </div>
   </section>
 
+  {#if isTauri}
+    <section>
+      <h3>桌面</h3>
+      <div class="group">
+        <label class="item">
+          <span>关闭窗口时保留在托盘</span>
+          <input type="checkbox" class="switch" bind:checked={settings.closeToTray} />
+        </label>
+        <label class="item">
+          <span>全局快捷键</span>
+          <input type="checkbox" class="switch" bind:checked={settings.globalShortcuts} />
+        </label>
+      </div>
+      {#if settings.globalShortcuts}
+        <p class="note keys">
+          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd> 播放 / 暂停</span>
+          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> 上一首 / 下一首</span>
+          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>L</kbd> 桌面歌词</span>
+        </p>
+      {/if}
+    </section>
+  {/if}
+
   <section>
     <h3>通用</h3>
     <div class="group">
@@ -374,6 +397,23 @@
   }
   .preview span {
     color: var(--fg);
+  }
+  .keys {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  kbd {
+    display: inline-block;
+    min-width: 18px;
+    margin-right: 3px;
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 0.5px solid var(--line-2);
+    background: var(--bg-elev);
+    font: 500 11px/16px var(--font);
+    text-align: center;
+    color: var(--fg-2);
   }
   .foot {
     margin: 22px 0 0;

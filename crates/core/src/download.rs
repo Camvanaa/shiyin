@@ -9,7 +9,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 
-use crate::api::Netease;
+use crate::source::Source;
 use crate::error::{Error, Result};
 use crate::model::Track;
 use crate::tag::{self, Format, Meta};
@@ -162,11 +162,11 @@ pub fn sized_cover(url: &str, size: u32) -> String {
     format!("{base}?param={size}y{size}")
 }
 
-async fn fetch_bytes(api: &Netease, url: &str) -> Option<(Vec<u8>, String)> {
-    if !is_allowed_media_url(url) {
+async fn fetch_bytes(src: &dyn Source, url: &str) -> Option<(Vec<u8>, String)> {
+    if !src.is_allowed_media_url(url) {
         return None;
     }
-    let resp = api.http().get(url).timeout(Duration::from_secs(20)).send().await.ok()?;
+    let resp = src.http().get(url).timeout(Duration::from_secs(20)).send().await.ok()?;
     if !resp.status().is_success() {
         return None;
     }
@@ -181,7 +181,7 @@ async fn fetch_bytes(api: &Netease, url: &str) -> Option<(Vec<u8>, String)> {
 
 /// 下载单曲到 `dir`。`progress(已下载, 总大小)` 在每个数据块后调用。
 pub async fn download(
-    api: &Netease,
+    src: &dyn Source,
     item: &DownloadItem,
     opts: &DownloadOptions,
     dir: &Path,
@@ -191,20 +191,20 @@ pub async fn download(
     let t = &item.track;
     let need_lyric = (opts.write_meta && opts.write_lyrics) || opts.lrc_file;
     let need_cover = opts.write_meta && opts.write_cover && !t.cover.is_empty();
-    let cover_url = if opts.compress_cover { sized_cover(&t.cover, 640) } else { t.cover.clone() };
+    let cover_url = if opts.compress_cover { src.sized_cover(&t.cover, 640) } else { t.cover.clone() };
 
     let (song, lyric, cover) = tokio::join!(
-        api.song_url(t.id, &opts.level),
+        src.song_url(t.id, &opts.level),
         async {
             if need_lyric {
-                api.lyric(t.id).await.ok()
+                src.lyric(t.id).await.ok()
             } else {
                 None
             }
         },
         async {
             if need_cover {
-                fetch_bytes(api, &cover_url).await
+                fetch_bytes(src, &cover_url).await
             } else {
                 None
             }
@@ -215,7 +215,7 @@ pub async fn download(
     if song.trial.is_some() {
         return Err(Error::Invalid("只能获取试听片段，需要登录会员账号".into()));
     }
-    if !is_allowed_media_url(&song.url) {
+    if !src.is_allowed_media_url(&song.url) {
         return Err(Error::Invalid("音频地址不在允许的域名内".into()));
     }
 
@@ -224,7 +224,7 @@ pub async fn download(
     let part = dir.join(format!(".shiyin-{}-{}.part", t.id, rand::random::<u32>()));
 
     let result: Result<Downloaded> = async {
-        let resp = api.http().get(&song.url).timeout(Duration::from_secs(60 * 30)).send().await?;
+        let resp = src.http().get(&song.url).timeout(Duration::from_secs(60 * 30)).send().await?;
         if !resp.status().is_success() {
             return Err(Error::Api { code: resp.status().as_u16() as i64, msg: "音频下载失败".into() });
         }

@@ -46,7 +46,30 @@ fn check_code(v: &Value) -> Result<()> {
     }
 }
 
+fn availability(fee: i64, p: &Value) -> Availability {
+    if p.is_null() {
+        return Availability::Ok;
+    }
+    let st = p["st"].as_i64().unwrap_or(0);
+    let pl = p["pl"].as_i64().unwrap_or(0);
+    if st < 0 {
+        return Availability::None;
+    }
+    if pl > 0 {
+        return Availability::Ok;
+    }
+    match fee {
+        4 => Availability::Paid,
+        _ => Availability::Vip,
+    }
+}
+
 pub(crate) fn parse_track(v: &Value) -> Track {
+    parse_track_with(v, &v["privilege"])
+}
+
+pub(crate) fn parse_track_with(v: &Value, privilege: &Value) -> Track {
+    let fee = v["fee"].as_i64().unwrap_or(0);
     let al = &v["al"];
     let alias = v["tns"][0]
         .as_str()
@@ -65,7 +88,8 @@ pub(crate) fn parse_track(v: &Value) -> Track {
         album: s(&al["name"]),
         cover: s(&al["picUrl"]).replacen("http://", "https://", 1),
         duration: u(&v["dt"]),
-        fee: v["fee"].as_i64().unwrap_or(0),
+        fee,
+        availability: availability(fee, privilege),
     }
 }
 
@@ -190,7 +214,12 @@ impl Netease {
         for v in futures_util::future::join_all(batches).await {
             let v = v?;
             if let Some(a) = v["songs"].as_array() {
-                out.extend(a.iter().map(parse_track));
+                // privileges 与 songs 顺序一致，但按 id 匹配更稳妥
+                let privs: std::collections::HashMap<u64, &Value> = v["privileges"]
+                    .as_array()
+                    .map(|p| p.iter().map(|x| (u(&x["id"]), x)).collect())
+                    .unwrap_or_default();
+                out.extend(a.iter().map(|t| parse_track_with(t, privs.get(&u(&t["id"])).copied().unwrap_or(&Value::Null))));
             }
         }
         Ok(out)

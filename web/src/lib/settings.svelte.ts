@@ -10,6 +10,10 @@ export interface Settings extends DownloadOptions {
   /** 合集下载时是否在目录下建立子文件夹 */
   subfolder: boolean;
   volume: number;
+  /** 桌面版：关闭主窗口时隐藏到托盘 */
+  closeToTray: boolean;
+  /** 桌面版：启用全局快捷键 */
+  globalShortcuts: boolean;
 }
 
 const KEY = 'shiyin.settings';
@@ -32,6 +36,8 @@ const defaults: Settings = {
   dir: '',
   subfolder: true,
   volume: 0.8,
+  closeToTray: true,
+  globalShortcuts: false,
 };
 
 function load(): Settings {

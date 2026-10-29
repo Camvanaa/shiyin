@@ -1,3 +1,5 @@
+mod desktop;
+
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -204,12 +206,14 @@ fn reveal(s: State<'_, Ctx>, id: u64) -> R<()> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
+            desktop::show_main(app);
         }))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["lyrics", "mini"])
+                .build(),
+        )
+        .plugin(desktop::plugin_global_shortcut())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -217,7 +221,7 @@ pub fn run() {
             let store = CredentialStore::new(&data);
             let api = Netease::new();
             api.set_music_u(store.load());
-            let jobs = JobManager::new(api.clone(), 3, None);
+            let jobs = JobManager::new(std::sync::Arc::new(api.clone()), 3, None);
 
             // 任务变化推送给界面，限制为每 200ms 最多一次
             let mut rx = jobs.subscribe();
@@ -232,6 +236,7 @@ pub fn run() {
             });
 
             app.manage(Ctx { api, store, jobs });
+            desktop::setup(app)?;
 
             // 页面就绪后再显示窗口，避免白屏闪烁
             if let Some(w) = app.get_webview_window("main") {
@@ -263,7 +268,11 @@ pub fn run() {
             clear_jobs,
             set_concurrency,
             default_dir_cmd,
-            reveal
+            reveal,
+            desktop::set_lyrics_window,
+            desktop::set_lyrics_locked,
+            desktop::set_mini_window,
+            desktop::set_desktop_prefs
         ])
         .run(tauri::generate_context!())
         .expect("启动拾音失败");

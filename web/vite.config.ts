@@ -11,6 +11,13 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        lyrics: 'lyrics.html',
+        mini: 'mini.html',
+      },
+    },
     cssMinify: true,
     modulePreload: { polyfill: false },
     reportCompressedSize: true,

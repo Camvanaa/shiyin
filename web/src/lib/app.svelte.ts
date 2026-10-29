@@ -32,6 +32,7 @@ class AppState {
   #unsubJobs: (() => void) | null = null;
 
   async init() {
+    if (isTauri) import('./desktop.svelte').then((m) => m.initDesktop());
     try {
       await this.refreshAccount();
       this.#startJobs();

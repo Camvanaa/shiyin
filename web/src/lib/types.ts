@@ -13,6 +13,8 @@ export interface Track {
   cover: string;
   duration: number;
   fee: number;
+  /** ok 可播放；vip 需会员（可能仅试听）；paid 需购买；none 无版权 */
+  availability: 'ok' | 'vip' | 'paid' | 'none';
 }
 
 export interface Collection {

@@ -61,7 +61,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         }
         zip_files(&snap.dir, &snap.title, &files).ok()
     });
-    let jobs = JobManager::new(app.api.clone(), 3, Some(finisher));
+    let jobs = JobManager::new(std::sync::Arc::new(app.api.clone()), 3, Some(finisher));
 
     // 定期清理结束超过 2 小时的任务及其临时文件
     let jm = jobs.clone();

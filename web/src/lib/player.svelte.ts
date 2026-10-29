@@ -4,6 +4,7 @@ import { parseLyric, type LrcLine } from './lrc';
 import { toast } from './toast.svelte';
 import { artists, img } from './format';
 import type { Track } from './types';
+import { extractTint } from './tint';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -21,6 +22,8 @@ class Player {
   shuffle = $state(false);
   expanded = $state(false);
   quality = $state('');
+  /** 当前封面主色 "r g b" */
+  tint = $state('');
   /** 当前只能播放试听片段 */
   trial = $state(false);
 
@@ -118,7 +121,8 @@ class Player {
     const t = this.current;
     if (!t) return;
     const token = ++this.#token;
-    const resume = keepTime ? this.#audio.currentTime : 0;
+    const resume = this.#pendingSeek ?? (keepTime ? this.#audio.currentTime : 0);
+    this.#pendingSeek = null;
     this.loading = true;
     if (!keepTime) {
       this.time = 0;
@@ -127,6 +131,9 @@ class Player {
       this.lyric = [];
     }
     this.#updateMetadata();
+    extractTint(t.cover).then((c) => {
+      if (token === this.#token) this.tint = c;
+    });
     try {
       const [u, l] = await Promise.all([
         this.#resolveUrl(t),
@@ -134,11 +141,15 @@ class Player {
       ]);
       if (token !== this.#token) return;
       if (l) this.lyric = parseLyric(l.lrc, l.tlrc);
+      this.#srcAt = Date.now();
       this.quality = u.level;
       this.trial = u.trial;
       if (u.trial) toast.info(`「${t.name}」只能试听片段`, '登录会员账号后可播放完整歌曲');
       this.#audio.src = u.url;
-      if (resume) this.#audio.currentTime = resume;
+      if (resume) {
+        const a = this.#audio;
+        a.addEventListener('loadedmetadata', () => (a.currentTime = resume), { once: true });
+      }
       await this.#audio.play().catch(() => {});
       this.#preloadNext();
     } catch (e) {
@@ -150,6 +161,11 @@ class Player {
     }
   }
   #skipStreak = 0;
+  /** 当前 src 的获取时间，用于判断地址是否快要过期 */
+  #srcAt = 0;
+  #stale() {
+    return !!this.#audio.src && Date.now() - this.#srcAt > 15 * 60_000;
+  }
 
   #preloadNext() {
     this.#skipStreak = 0;
@@ -157,18 +173,25 @@ class Player {
     if (n >= 0 && n !== this.index) this.#resolveUrl(this.queue[n]).catch(() => {});
   }
 
-  #nextIndex(manual: boolean): number {
+  /** 下一首可播放歌曲的位置，跳过无版权歌曲 */
+  #nextIndex(manual: boolean, dir = 1): number {
     const len = this.queue.length;
     if (!len) return -1;
     if (this.repeat === 'one' && !manual) return this.index;
+    const playable = (i: number) => this.queue[i].availability !== 'none';
     if (this.shuffle && len > 1) {
-      let r = this.index;
-      while (r === this.index) r = Math.floor(Math.random() * len);
-      return r;
+      const cands = this.queue.map((_, i) => i).filter((i) => i !== this.index && playable(i));
+      return cands.length ? cands[Math.floor(Math.random() * cands.length)] : -1;
     }
-    const n = this.index + 1;
-    if (n < len) return n;
-    return this.repeat === 'off' && !manual ? -1 : 0;
+    for (let step = 1; step <= len; step++) {
+      let n = this.index + step * dir;
+      if (n >= len || n < 0) {
+        if (this.repeat === 'off' && !manual) return -1;
+        n = ((n % len) + len) % len;
+      }
+      if (playable(n)) return n;
+    }
+    return -1;
   }
 
   #onEnded() {
@@ -190,12 +213,23 @@ class Player {
   playList(tracks: Track[], start = 0) {
     if (!tracks.length) return;
     this.queue = tracks.slice();
-    this.index = start;
+    // 起点不可播放时顺延到下一首可播放的
+    let i = start;
+    for (let k = 0; k < tracks.length && tracks[i].availability === 'none'; k++) i = (i + 1) % tracks.length;
+    if (tracks[i].availability === 'none') {
+      toast.error('列表中的歌曲都无法播放', '可能是版权限制');
+      return;
+    }
+    this.index = i;
     this.#load();
   }
 
   /** 播放单曲：已在队列中则跳转，否则插入到当前曲目之后 */
   play(t: Track) {
+    if (t.availability === 'none') {
+      toast.error(`「${t.name}」暂无版权`, '无法播放');
+      return;
+    }
     const i = this.queue.findIndex((x) => x.id === t.id);
     if (i >= 0) {
       if (i === this.index) return this.toggle();
@@ -270,8 +304,11 @@ class Player {
   toggle() {
     if (!this.current) return;
     if (!this.#audio.src) return void this.#load();
-    if (this.#audio.paused) this.#audio.play();
-    else this.#audio.pause();
+    if (this.#audio.paused) {
+      // 暂停太久后地址可能已过期，先刷新再从原位置继续
+      if (this.#stale()) return void this.#refresh();
+      this.#audio.play();
+    } else this.#audio.pause();
   }
 
   next() {
@@ -287,19 +324,31 @@ class Player {
       this.seek(0);
       return;
     }
-    if (!this.queue.length) return;
-    this.index = (this.index - 1 + this.queue.length) % this.queue.length;
+    const n = this.#nextIndex(true, -1);
+    if (n < 0) return;
+    this.index = n;
     this.#load();
   }
 
   seek(sec: number) {
     if (!this.#audio.src) return;
+    if (this.#stale()) {
+      this.#pendingSeek = sec;
+      return void this.#refresh();
+    }
     this.#audio.currentTime = Math.max(0, Math.min(sec, this.duration || sec));
     this.time = this.#audio.currentTime;
   }
 
   cycleRepeat() {
     this.repeat = this.repeat === 'all' ? 'one' : this.repeat === 'one' ? 'off' : 'all';
+  }
+
+  #pendingSeek: number | null = null;
+  #refresh() {
+    const t = this.current;
+    if (t) this.#urlCache.delete(`${t.id}:${settings.playLevel}`);
+    this.#load(true);
   }
 
   /** 音质设置变化后重新加载当前歌曲 */

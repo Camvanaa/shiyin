@@ -112,6 +112,7 @@
         class="row"
         class:active
         class:noalbum={!showAlbum}
+        class:off={t.availability === 'none'}
         class:sel={selectable && selected.has(t.id)}
         class:enter={animate && idx < 14}
         style:--d="{Math.min(idx, 14) * 18}ms"
@@ -145,7 +146,9 @@
             {t.name}{#if t.alias}<span class="alias">（{t.alias}）</span>{/if}
           </div>
           <div class="sub ellipsis">
-            {#if t.fee === 1}<span class="badge vip">VIP</span>{/if}
+            {#if t.availability === 'none'}<span class="badge">无版权</span>
+            {:else if t.availability === 'paid'}<span class="badge vip">付费</span>
+            {:else if t.fee === 1}<span class="badge vip">VIP</span>{/if}
             {artists(t)}
           </div>
         </div>
@@ -237,6 +240,12 @@
   }
   .row.active .name {
     color: var(--accent);
+  }
+  .row.off .title,
+  .row.off .album,
+  .row.off .dur,
+  .row.off .cover {
+    opacity: 0.38;
   }
   .row.enter {
     animation: rise var(--t-slow) var(--ease-out) backwards;

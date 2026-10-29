@@ -14,7 +14,6 @@
   let userScrolling = $state(false);
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   let scrub = $state<number | null>(null);
-  let tint = $state('');
 
   // 歌词行提前 0.15s 切换，视觉上更跟手。player.time 在播放时逐帧更新。
   $effect(() => {
@@ -42,45 +41,6 @@
     scrollTimer = setTimeout(() => (userScrolling = false), 2500);
   }
 
-  // 从封面取一次平均色作为背景色调
-  $effect(() => {
-    const url = t?.cover;
-    if (!url) return;
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.src = img(url, 32);
-    im.onload = () => {
-      try {
-        const c = document.createElement('canvas');
-        c.width = c.height = 12;
-        const g = c.getContext('2d', { willReadFrequently: true })!;
-        g.drawImage(im, 0, 0, 12, 12);
-        const d = g.getImageData(0, 0, 12, 12).data;
-        // 按饱和度加权取主色，避免平均成灰色
-        let r = 0, gg = 0, b = 0, wsum = 0;
-        for (let i = 0; i < d.length; i += 4) {
-          const R = d[i], G = d[i + 1], B = d[i + 2];
-          const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
-          const w = 0.08 + (mx - mn) / 255 + (mx > 40 && mx < 235 ? 0.3 : 0);
-          r += R * w;
-          gg += G * w;
-          b += B * w;
-          wsum += w;
-        }
-        r /= wsum;
-        gg /= wsum;
-        b /= wsum;
-        // 亮度过低时整体提亮，保证背景有颜色
-        const lum = 0.299 * r + 0.587 * gg + 0.114 * b;
-        const k = lum < 90 ? 90 / Math.max(lum, 1) : lum > 170 ? 170 / lum : 1;
-        const ch = (v: number) => Math.min(255, Math.round(v * k));
-        tint = `${ch(r)} ${ch(gg)} ${ch(b)}`;
-      } catch {
-        tint = '';
-      }
-    };
-  });
-
   function close() {
     player.expanded = false;
   }
@@ -95,7 +55,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if t && player.expanded}
-  <div class="np" style:--tint={tint || '120 120 128'} role="dialog" aria-label="正在播放">
+  <div class="np" style:--tint={player.tint || '120 120 128'} role="dialog" aria-label="正在播放">
     <div class="bg"></div>
     <header>
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2} /></button>
