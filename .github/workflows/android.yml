@@ -59,7 +59,7 @@ jobs:
       - name: 构建 Android APK (arm64-v8a)
         working-directory: src-tauri
         run: |
-          ../web/node_modules/.bin/tauri android build --apk --target aarch64-linux-android
+          ../web/node_modules/.bin/tauri android build --apk --target aarch64
 
       - name: 收集 APK 文件
         run: |
