@@ -29,8 +29,8 @@ fn e<E: ToString>(err: E) -> String {
 }
 
 #[tauri::command]
-async fn home(s: State<'_, Ctx>) -> R<shiyin_core::HomeFeed> {
-    s.api.home().await.map_err(e)
+async fn home(s: State<'_, Ctx>, source: Option<String>) -> R<shiyin_core::HomeFeed> {
+    s.sources.home(source.as_deref().unwrap_or("")).await.map_err(e)
 }
 
 #[tauri::command]
@@ -43,7 +43,7 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
     s.sources
         .list()
         .iter()
-        .map(|x| serde_json::json!({ "id": x.id(), "label": x.label(), "levels": x.levels() }))
+        .map(|x| serde_json::json!({ "id": x.id(), "label": x.label(), "levels": x.levels(), "hasCookie": x.has_cookie() }))
         .collect()
 }
 
@@ -78,6 +78,29 @@ async fn playlist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection
 #[tauri::command]
 async fn album(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
     pick(&s, &source)?.collection(CollectionKind::Album, &id).await.map_err(e)
+}
+
+#[tauri::command]
+async fn toplist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
+    pick(&s, &source)?.collection(CollectionKind::Toplist, &id).await.map_err(e)
+}
+
+#[tauri::command]
+async fn match_playable(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String) -> R<Value> {
+    let (track, url) = s
+        .sources
+        .find_playable(&name, &artist, &skip, &level)
+        .await
+        .ok_or_else(|| "其它音源也未找到可播放版本".to_owned())?;
+    Ok(json!({ "track": track, "url": url }))
+}
+
+#[tauri::command]
+fn set_source_cookie(s: State<'_, Ctx>, source: String, cookie: Option<String>) -> R<Value> {
+    let src = pick(&s, &source)?;
+    src.set_cookie(cookie.clone());
+    s.store.save_for(&source, cookie.as_deref()).map_err(e)?;
+    Ok(json!({ "ok": true, "hasCookie": src.has_cookie() }))
 }
 
 #[tauri::command]
@@ -245,6 +268,12 @@ pub fn run() {
             let api = Netease::new();
             api.set_music_u(store.load());
             let sources = Sources::new(api.clone());
+    for src in sources.list() {
+        if src.id() != "netease" {
+            let env_key = format!("{}_COOKIE", src.id().to_ascii_uppercase());
+            src.set_cookie(store.load_for(src.id()).or_else(|| std::env::var(env_key).ok()));
+        }
+    }
             let jobs = JobManager::new(sources.clone(), 3, None);
 
             // 任务变化推送给界面，限制为每 200ms 最多一次
@@ -281,6 +310,9 @@ pub fn run() {
             lyric,
             playlist,
             album,
+            toplist,
+            match_playable,
+            set_source_cookie,
             account,
             set_cookie,
             logout,

@@ -4,7 +4,7 @@
   import Slider from './Slider.svelte';
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
-  import { artists, duration, img } from '../lib/format';
+  import { artists, duration, img, sourceName } from '../lib/format';
   import { lineAt } from '../lib/lrc';
   import { LEVELS } from '../lib/types';
 
@@ -60,6 +60,7 @@
     <header>
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2} /></button>
       <span class="tags">
+        <span class="q">{player.matchedFrom ? `${sourceName(t.source)} → ${sourceName(player.matchedFrom)}` : sourceName(t.source)}</span>
         {#if player.trial}<span class="q">试听</span>{/if}
         {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
       </span>

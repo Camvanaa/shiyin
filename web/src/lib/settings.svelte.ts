@@ -10,6 +10,7 @@ export interface Settings extends DownloadOptions {
   /** 合集下载时是否在目录下建立子文件夹 */
   subfolder: boolean;
   volume: number;
+  /** 当前音源无版权或需要会员时，自动在其它音源查找同名歌曲 */  autoFallback: boolean;
   /** 桌面版：关闭主窗口时隐藏到托盘 */
   closeToTray: boolean;
   /** 桌面版：启用全局快捷键 */
@@ -36,6 +37,7 @@ const defaults: Settings = {
   dir: '',
   subfolder: true,
   volume: 0.8,
+  autoFallback: true,
   closeToTray: true,
   globalShortcuts: false,
 };

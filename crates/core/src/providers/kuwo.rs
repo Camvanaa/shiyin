@@ -10,6 +10,8 @@ use crate::source::{BoxFut, Source};
 #[derive(Clone)]
 pub struct Kuwo {
     http: reqwest::Client,
+    cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
+    home_cache: std::sync::Arc<std::sync::RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 impl Default for Kuwo {
@@ -35,7 +37,11 @@ impl Kuwo {
             .redirect(reqwest::redirect::Policy::limited(5))
             .build()
             .expect("kuwo http");
-        Self { http }
+        Self {
+            http,
+            cookie: Default::default(),
+            home_cache: Default::default(),
+        }
     }
 
     fn get(&self, url: &str, params: &[(&str, String)]) -> BoxFut<'static, Value> {
@@ -43,12 +49,16 @@ impl Kuwo {
         let params: Vec<(String, String)> = params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
         let this = self.clone();
         Box::pin(async move {
-            let resp = this
+            let mut rb = this
                 .http
                 .get(&url)
                 .query(&params)
                 .header(reqwest::header::REFERER, "https://www.kuwo.cn/")
-                .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+                .header(reqwest::header::USER_AGENT, "Mozilla/5.0");
+            if let Some(c) = this.cookie.read().unwrap().as_deref() {
+                rb = rb.header(reqwest::header::COOKIE, c);
+            }
+            let resp = rb
                 .timeout(std::time::Duration::from_secs(20))
                 .send()
                 .await?;
@@ -262,7 +272,7 @@ impl Source for Kuwo {
         let id = id.to_string();
         Box::pin(async move {
             let (url, params) = match kind {
-                CollectionKind::Playlist => (
+                CollectionKind::Playlist | CollectionKind::Toplist => (
                     "https://nplserver.kuwo.cn/pl.svc",
                     vec![
                         ("op", "getlistinfo".into()),
@@ -326,6 +336,58 @@ impl Source for Kuwo {
                 track_count: tracks.len(),
                 tracks,
             })
+        })
+    }
+
+    fn set_cookie(&self, cookie: Option<String>) {
+        *self.cookie.write().unwrap() = cookie.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
+    }
+
+    fn has_cookie(&self) -> bool {
+        self.cookie.read().unwrap().is_some()
+    }
+
+    fn home(&self) -> BoxFut<'_, HomeFeed> {
+        Box::pin(async move {
+            if let Some((t, f)) = self.home_cache.read().unwrap().as_ref() {
+                if t.elapsed() < std::time::Duration::from_secs(900) {
+                    return Ok(f.clone());
+                }
+            }
+            let (rcm, news) = tokio::join!(
+                self.get(
+                    "https://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList",
+                    &[("pn", "1".into()), ("rn", "10".into()), ("order", "hot".into()), ("httpsStatus", "1".into())],
+                ),
+                self.search("热歌", 12, 0),
+            );
+            let playlists = rcm
+                .ok()
+                .and_then(|v| {
+                    v["data"]["data"].as_array().map(|a| {
+                        a.iter()
+                            .take(10)
+                            .map(|x| PlaylistBrief {
+                                id: s(&x["id"]),
+                                source: "kuwo".into(),
+                                kind: CollectionKind::Playlist,
+                                name: s(&x["name"]),
+                                cover: Self::picture(&x["img"]),
+                                subtitle: s(&x["uname"]),
+                            })
+                            .collect()
+                    })
+                })
+                .unwrap_or_default();
+            let feed = HomeFeed {
+                playlists,
+                charts: Vec::new(),
+                new_songs: news.unwrap_or_default(),
+            };
+            if !feed.playlists.is_empty() {
+                *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
+            }
+            Ok(feed)
         })
     }
 

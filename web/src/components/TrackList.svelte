@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte';
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
-  import { artists, duration, img } from '../lib/format';
+  import { artists, duration, img, sourceShort } from '../lib/format';
   import type { Track } from '../lib/types';
 
   let {
@@ -146,7 +146,7 @@
             {t.name}{#if t.alias}<span class="alias">（{t.alias}）</span>{/if}
           </div>
           <div class="sub ellipsis">
-            {#if t.source && t.source !== 'netease'}<span class="badge src">{t.source === 'qq' ? 'QQ' : '酷我'}</span>{/if}
+            <span class="badge src">{sourceShort(t.source)}</span>
             {#if t.availability === 'none'}<span class="badge">无版权</span>
             {:else if t.availability === 'paid'}<span class="badge vip">付费</span>
             {:else if t.fee === 1}<span class="badge vip">VIP</span>{/if}
@@ -182,9 +182,22 @@
       ><Icon name="download" />下载</button
     >
     <button role="menuitem" onclick={() => app.openSong(t.id, undefined, t.source)}><Icon name="note" />歌曲详情</button>
-    <button role="menuitem" onclick={() => app.openCollection('album', t.albumId, undefined, t.source)}><Icon name="disc" />前往专辑</button>
-    <button role="menuitem" onclick={() => navigator.clipboard?.writeText(`https://music.163.com/song?id=${t.id}`)}
-      ><Icon name="link" />复制链接</button
+    {#if t.albumId}
+      <button role="menuitem" onclick={() => app.openCollection('album', t.albumId, undefined, t.source)}><Icon name="disc" />前往专辑</button>
+    {/if}
+    <button role="menuitem" onclick={() => (app.setSource('all'), app.search(`${t.name} ${artists(t)}`))}>
+      <Icon name="search" />在全部音源中搜索
+    </button>
+    <button
+      role="menuitem"
+      onclick={() =>
+        navigator.clipboard?.writeText(
+          t.source === 'qq'
+            ? `https://y.qq.com/n/ryqq/songDetail/${t.id}`
+            : t.source === 'kuwo'
+              ? `https://www.kuwo.cn/play_detail/${t.id}`
+              : `https://music.163.com/song?id=${t.id}`,
+        )}><Icon name="link" />复制链接</button
     >
   </div>
 {/if}

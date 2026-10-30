@@ -20,7 +20,7 @@ export interface Track {
 }
 
 export interface Collection {
-  kind: 'playlist' | 'album';
+  kind: 'playlist' | 'album' | 'toplist';
   id: string;
   source: string;
   name: string;
@@ -73,6 +73,7 @@ export interface SourceInfo {
   id: string;
   label: string;
   levels: string[];
+  hasCookie: boolean;
 }
 
 export type JobStatus = 'waiting' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
@@ -152,7 +153,9 @@ export const LEVELS: { value: string; label: string; hint: string }[] = [
 ];
 
 export interface PlaylistBrief {
-  id: number;
+  id: string;
+  source: string;
+  kind: 'playlist' | 'album' | 'toplist';
   name: string;
   cover: string;
   subtitle: string;

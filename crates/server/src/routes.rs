@@ -87,8 +87,11 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/lyric/{id}", get(lyric))
         .route("/playlist/{id}", get(playlist))
         .route("/album/{id}", get(album))
+        .route("/toplist/{id}", get(toplist))
+        .route("/match", get(match_playable))
         .route("/account", get(account).delete(logout))
         .route("/account/cookie", post(set_cookie))
+        .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
         .route("/qr", post(qr_start))
         .route("/qr/{key}", get(qr_check))
         .route("/jobs", get(list_jobs).post(add_job).delete(clear_jobs))
@@ -148,8 +151,8 @@ struct Q {
     q: String,
 }
 
-async fn home(State(c): State<Ctx>) -> R<shiyin_core::HomeFeed> {
-    Ok(Json(c.app.api.home().await?))
+async fn home(State(c): State<Ctx>, Query(q): Query<SourceQ>) -> R<shiyin_core::HomeFeed> {
+    Ok(Json(c.app.sources.home(&q.source).await?))
 }
 
 async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<Value> {
@@ -162,7 +165,7 @@ async fn sources(State(c): State<Ctx>) -> Json<Value> {
         .sources
         .list()
         .iter()
-        .map(|s| json!({ "id": s.id(), "label": s.label(), "levels": s.levels() }))
+        .map(|s| json!({ "id": s.id(), "label": s.label(), "levels": s.levels(), "hasCookie": s.has_cookie() }))
         .collect();
     Json(json!(list))
 }
@@ -226,6 +229,48 @@ async fn playlist(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): 
 
 async fn album(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
     Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Album, &id).await?))
+}
+
+async fn toplist(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
+    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Toplist, &id).await?))
+}
+
+#[derive(Deserialize)]
+struct MatchQ {
+    name: String,
+    #[serde(default)]
+    artist: String,
+    #[serde(default)]
+    skip: String,
+    #[serde(default = "default_level")]
+    level: String,
+}
+fn default_level() -> String { "exhigh".into() }
+
+async fn match_playable(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> R<Value> {
+    let Some((track, url)) = c.app.sources.find_playable(&q.name, &q.artist, &q.skip, &q.level).await else {
+        return Err(ApiError(StatusCode::NOT_FOUND, "其它音源也未找到可播放版本".into()));
+    };
+    Ok(Json(json!({ "track": track, "url": url })))
+}
+
+#[derive(Deserialize)]
+struct SourceCookieBody {
+    cookie: String,
+}
+
+async fn set_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<SourceCookieBody>) -> R<Value> {
+    let src = pick(&c, &id)?;
+    src.set_cookie(Some(b.cookie.clone()));
+    c.app.store.save_for(&id, Some(&b.cookie))?;
+    Ok(Json(json!({ "ok": true, "hasCookie": src.has_cookie() })))
+}
+
+async fn clear_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<Value> {
+    let src = pick(&c, &id)?;
+    src.set_cookie(None);
+    c.app.store.save_for(&id, None)?;
+    Ok(Json(json!({ "ok": true, "hasCookie": false })))
 }
 
 async fn account(State(c): State<Ctx>) -> R<Value> {

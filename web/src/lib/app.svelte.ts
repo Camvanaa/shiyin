@@ -22,7 +22,8 @@ class AppState {
   hasCredential = $state(false);
   jobs = $state<JobSummary[]>([]);
   feed = $state<HomeFeed | null>(null);
-  source = $state<string>(localStorage.getItem('shiyin.source') ?? 'netease');
+  source = $state<string>(localStorage.getItem('shiyin.source') ?? 'all');
+  homeLoading = $state(false);
   sources = $state<SourceInfo[]>([]);
   /** 视图切换计数，用于触发进入动画 */
   viewKey = $state(0);
@@ -38,7 +39,7 @@ class AppState {
     if (isTauri) import('./desktop.svelte').then((m) => m.initDesktop());
     try {
       api.sources().then((l) => (this.sources = l)).catch(() => {});
-      api.home().then((f) => (this.feed = f)).catch(() => {});
+      this.loadHome();
       await this.refreshAccount();
       this.#startJobs();
       api.setConcurrency(settings.concurrency).catch(() => {});
@@ -76,9 +77,21 @@ class AppState {
     });
   }
 
+  loadHome() {
+    this.homeLoading = true;
+    api
+      .home(this.source)
+      .then((f) => (this.feed = f))
+      .catch(() => {})
+      .finally(() => (this.homeLoading = false));
+  }
+
   setSource(id: string) {
+    if (this.source === id) return;
     this.source = id;
     localStorage.setItem('shiyin.source', id);
+    this.loadHome();
+    if (this.view.kind === 'search') this.search(this.view.q);
   }
 
   async refreshAccount() {
@@ -143,6 +156,12 @@ class AppState {
   async submit(input: string) {
     const q = input.trim();
     if (!q) return;
+    const m = q.match(/^(netease|qq|kuwo):(playlist|album|toplist|song):(.+)$/);
+    if (m) {
+      return m[2] === 'song'
+        ? this.openSong(m[3], q, m[1])
+        : this.openCollection(m[2] as 'playlist' | 'album' | 'toplist', m[3], q, m[1]);
+    }
     const r = await this.#run(() => api.resolve(q));
     if (!r) return;
     if (r.type === 'query') return this.search(r.value);
@@ -181,10 +200,12 @@ class AppState {
     this.#go({ kind: 'song', track });
   }
 
-  async openCollection(kind: 'playlist' | 'album', id: string, q = `${kind}:${id}`, source = 'netease') {
-    const data = await this.#run(() => (kind === 'playlist' ? api.playlist(id, source) : api.album(id, source)));
+  async openCollection(kind: 'playlist' | 'album' | 'toplist', id: string, q?: string, source = 'netease') {
+    const data = await this.#run(() =>
+      kind === 'album' ? api.album(id, source) : kind === 'toplist' ? api.toplist(id, source) : api.playlist(id, source),
+    );
     if (!data) return;
-    remember({ q, title: data.name, kind, cover: data.cover });
+    remember({ q: q ?? `${source}:${kind}:${id}`, title: data.name, kind: kind === 'toplist' ? 'playlist' : kind, cover: data.cover });
     this.#go({ kind: 'collection', data });
   }
 

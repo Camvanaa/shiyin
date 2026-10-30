@@ -6,7 +6,7 @@ import type {
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 export interface Api {
-  home(): Promise<HomeFeed>;
+  home(source?: string): Promise<HomeFeed>;
   sources(): Promise<SourceInfo[]>;
   resolve(q: string): Promise<Resolved>;
   search(q: string, limit: number, offset?: number, source?: string): Promise<Track[]>;
@@ -15,6 +15,9 @@ export interface Api {
   lyric(id: string, source?: string): Promise<Lyric>;
   playlist(id: string, source?: string): Promise<Collection>;
   album(id: string, source?: string): Promise<Collection>;
+  toplist(id: string, source?: string): Promise<Collection>;
+  matchPlayable(name: string, artist: string, skip: string, level: string): Promise<{ track: Track; url: SongUrl }>;
+  setSourceCookie(source: string, cookie: string | null): Promise<{ hasCookie: boolean }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
   setCookie(musicU: string): Promise<{ account: Account }>;
   logout(): Promise<void>;
@@ -66,7 +69,7 @@ async function http<T>(method: string, path: string, body?: unknown, signal?: Ab
 const enc = encodeURIComponent;
 
 const httpApi: Api = {
-  home: () => http('GET', '/home'),
+  home: (source = '') => http('GET', `/home?source=${enc(source)}`),
   sources: () => http('GET', '/sources'),
   resolve: (q) => http('GET', `/resolve?q=${enc(q)}`),
   search: (q, limit, offset = 0, source = '') => http('GET', `/search?q=${enc(q)}&limit=${limit}&offset=${offset}&source=${enc(source)}`),
@@ -75,6 +78,9 @@ const httpApi: Api = {
   lyric: (id, source = '') => http('GET', `/lyric/${enc(id)}?source=${enc(source)}`),
   playlist: (id, source = '') => http('GET', `/playlist/${enc(id)}?source=${enc(source)}`),
   album: (id, source = '') => http('GET', `/album/${enc(id)}?source=${enc(source)}`),
+  toplist: (id, source = '') => http('GET', `/toplist/${enc(id)}?source=${enc(source)}`),
+  matchPlayable: (name, artist, skip, level) => http('GET', `/match?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}`),
+  setSourceCookie: (source, cookie) => cookie ? http('POST', `/sources/${enc(source)}/cookie`, { cookie }) : http('DELETE', `/sources/${enc(source)}/cookie`),
   account: () => http('GET', '/account'),
   setCookie: (musicU) => http('POST', '/account/cookie', { musicU }),
   logout: () => http('DELETE', '/account'),
@@ -132,7 +138,7 @@ async function tauriApi(): Promise<Api> {
       throw new Error(typeof e === 'string' ? e : (e?.message ?? String(e)));
     });
   return {
-    home: () => call('home'),
+    home: (source = '') => call('home', { source }),
     sources: () => call('sources'),
     resolve: (q) => call('resolve', { q }),
     search: (q, limit, offset = 0, source = '') => call('search', { q, limit, offset, source }),
@@ -141,6 +147,9 @@ async function tauriApi(): Promise<Api> {
     lyric: (id, source = '') => call('lyric', { id, source }),
     playlist: (id, source = '') => call('playlist', { id, source }),
     album: (id, source = '') => call('album', { id, source }),
+    toplist: (id, source = '') => call('toplist', { id, source }),
+    matchPlayable: (name, artist, skip, level) => call('match_playable', { name, artist, skip, level }),
+    setSourceCookie: (source, cookie) => call('set_source_cookie', { source, cookie }),
     account: () => call('account'),
     setCookie: (musicU) => call('set_cookie', { musicU }),
     logout: () => call('logout'),

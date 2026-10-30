@@ -48,11 +48,13 @@ impl Track {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum CollectionKind {
+    #[default]
     Playlist,
     Album,
+    Toplist,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,7 +153,11 @@ pub fn is_valid_level(level: &str) -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistBrief {
-    pub id: u64,
+    pub id: String,
+    #[serde(default = "default_source")]
+    pub source: String,
+    #[serde(default)]
+    pub kind: CollectionKind,
     pub name: String,
     pub cover: String,
     pub subtitle: String,

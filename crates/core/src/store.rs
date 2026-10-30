@@ -42,3 +42,47 @@ impl CredentialStore {
         }
     }
 }
+
+impl CredentialStore {
+    fn key_path(&self, source: &str) -> PathBuf {
+        let safe: String = source.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        self.path.with_file_name(format!("credential.{safe}"))
+    }
+
+    pub fn load_for(&self, source: &str) -> Option<String> {
+        if source == "netease" {
+            if let Some(v) = self.load() {
+                return Some(v);
+            }
+        }
+        std::fs::read_to_string(self.key_path(source))
+            .ok()
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty())
+    }
+
+    pub fn save_for(&self, source: &str, cookie: Option<&str>) -> Result<()> {
+        if source == "netease" {
+            return self.save(cookie);
+        }
+        let p = self.key_path(source);
+        match cookie.map(str::trim).filter(|s| !s.is_empty()) {
+            None => match std::fs::remove_file(&p) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+                _ => Ok(()),
+            },
+            Some(v) => {
+                if let Some(dir) = p.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                let mut opts = std::fs::OpenOptions::new();
+                opts.write(true).create(true).truncate(true);
+                #[cfg(unix)]
+                std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o600);
+                use std::io::Write;
+                opts.open(&p)?.write_all(v.as_bytes())?;
+                Ok(())
+            }
+        }
+    }
+}

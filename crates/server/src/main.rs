@@ -60,6 +60,12 @@ async fn main() {
     std::fs::create_dir_all(&tmp).expect("无法创建临时目录");
 
     let sources = Sources::new(api.clone());
+    for src in sources.list() {
+        if src.id() != "netease" {
+            let env_key = format!("{}_COOKIE", src.id().to_ascii_uppercase());
+            src.set_cookie(store.load_for(src.id()).or_else(|| std::env::var(env_key).ok()));
+        }
+    }
     let state = Arc::new(AppState { api, sources, store, token, tmp });
     let app = routes::router(state);
 

@@ -30,7 +30,7 @@ class Player {
   current = $derived(this.index >= 0 ? (this.queue[this.index] ?? null) : null);
 
   #audio: HTMLAudioElement;
-  #urlCache = new Map<string, { url: string; level: string; trial: boolean; exp: number }>();
+  #urlCache = new Map<string, { url: string; level: string; trial: boolean; from: string; exp: number }>();
   #token = 0;
 
   constructor() {
@@ -106,15 +106,40 @@ class Player {
     this.#audio.volume = settings.volume;
   }
 
-  async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean }> {
+  /** 实际播放所用的音源（发生自动换源时与 current.source 不同） */
+  matchedFrom = $state('');
+
+  async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean; from: string }> {
     const key = `${t.source}:${t.id}:${settings.playLevel}`;
     const c = this.#urlCache.get(key);
     if (c && c.exp > Date.now()) return c;
-    const r = await api.songUrl(t.id, settings.playLevel, t.source);
-    // 网易云的地址一般 20 分钟后失效，保守缓存 15 分钟
-    const v = { url: r.url, level: r.level, trial: !!r.trial, exp: Date.now() + 15 * 60_000 };
-    this.#urlCache.set(key, v);
-    return v;
+    try {
+      const r = await api.songUrl(t.id, settings.playLevel, t.source);
+      if (r.trial && settings.autoFallback) {
+        const alt = await this.#tryFallback(t);
+        if (alt) return alt;
+      }
+      const v = { url: r.url, level: r.level, trial: !!r.trial, from: t.source, exp: Date.now() + 15 * 60_000 };
+      this.#urlCache.set(key, v);
+      return v;
+    } catch (origErr) {
+      if (settings.autoFallback) {
+        const alt = await this.#tryFallback(t);
+        if (alt) return alt;
+      }
+      throw origErr;
+    }
+  }
+
+  async #tryFallback(t: Track) {
+    try {
+      const m = await api.matchPlayable(t.name, artists(t), t.source, settings.playLevel);
+      const v = { url: m.url.url, level: m.url.level, trial: false, from: m.track.source, exp: Date.now() + 15 * 60_000 };
+      this.#urlCache.set(`${t.source}:${t.id}:${settings.playLevel}`, v);
+      return v;
+    } catch {
+      return null;
+    }
   }
 
   async #load(keepTime = false) {
@@ -144,6 +169,7 @@ class Player {
       this.#srcAt = Date.now();
       this.quality = u.level;
       this.trial = u.trial;
+      this.matchedFrom = u.from !== t.source ? u.from : '';
       if (u.trial) toast.info(`「${t.name}」只能试听片段`, '登录会员账号后可播放完整歌曲');
       this.#audio.src = u.url;
       if (resume) {
@@ -226,7 +252,7 @@ class Player {
 
   /** 播放单曲：已在队列中则跳转，否则插入到当前曲目之后 */
   play(t: Track) {
-    if (t.availability === 'none') {
+    if (t.availability === 'none' && !settings.autoFallback) {
       toast.error(`「${t.name}」暂无版权`, '无法播放');
       return;
     }

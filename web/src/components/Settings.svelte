@@ -69,7 +69,13 @@
         </select>
       </label>
     </div>
-    <p class="note">{LEVELS.find((l) => l.value === settings.level)?.hint}。高于账号权限时会自动降级。</p>
+    <div class="group" style="margin-top:8px">
+      <label class="item">
+        <span>无版权或仅试听时自动换源播放</span>
+        <input type="checkbox" class="switch" bind:checked={settings.autoFallback} />
+      </label>
+    </div>
+    <p class="note">{LEVELS.find((l) => l.value === settings.level)?.hint}。高于账号权限时会自动降级；开启自动换源后会在其它平台寻找同名可播版本。</p>
   </section>
 
   <section>

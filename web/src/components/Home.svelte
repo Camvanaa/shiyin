@@ -4,19 +4,14 @@
   import { app } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
   import { history, clearHistory } from '../lib/history.svelte';
-  import { artists, img } from '../lib/format';
+  import { artists, img, sourceShort } from '../lib/format';
   import type { PlaylistBrief, Track } from '../lib/types';
 
   const recent = $derived(history.items.filter((h) => h.kind !== 'query').slice(0, 6));
   const feed = $derived(app.feed);
   const currentId = $derived(player.current?.id);
 
-  const fallbackCharts: PlaylistBrief[] = [
-    { id: 19723756, name: '飙升榜', cover: '', subtitle: '每天更新' },
-    { id: 3779629, name: '新歌榜', cover: '', subtitle: '每天更新' },
-    { id: 2884035, name: '原创榜', cover: '', subtitle: '每周四更新' },
-    { id: 3778678, name: '热歌榜', cover: '', subtitle: '每天更新' },
-  ];
+  const fallbackCharts: PlaylistBrief[] = [];
 
   const charts = $derived(feed?.charts.length ? feed.charts : fallbackCharts);
   const kindLabel = { song: '歌曲', playlist: '歌单', album: '专辑', query: '' } as const;
@@ -29,7 +24,13 @@
 <div class="home">
   <header class="page-head">
     <h1>主页</h1>
-    {#if app.account}<span class="who muted">{app.account.nickname}</span>{/if}
+    <div class="tabs" role="tablist" aria-label="音源">
+      {#each [['all', '聚合'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
+        <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
+          {label}
+        </button>
+      {/each}
+    </div>
   </header>
 
   {#if recent.length}
@@ -54,7 +55,7 @@
 
   <section>
     <div class="sec-head"><h2>推荐歌单</h2></div>
-    {#if !feed}
+    {#if !feed || app.homeLoading}
       <div class="shelf">
         {#each { length: 5 } as _}
           <div class="card skel"><span class="art"></span><span class="sk-line"></span><span class="sk-line sm"></span></div>
@@ -77,7 +78,7 @@
           <button class="btn plain" onclick={() => playNew(0)}>播放全部</button>
         {/if}
       </div>
-      {#if !feed}
+      {#if !feed || app.homeLoading}
         <div class="songs">
           {#each { length: 9 } as _}
             <div class="song skel"><span class="s-art"></span><span class="s-txt"><span class="sk-line"></span><span class="sk-line sm"></span></span></div>
@@ -104,9 +105,10 @@
 </div>
 
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
-  <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection('playlist', String(p.id))}>
+  <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection(p.kind || 'playlist', String(p.id), undefined, p.source)}>
     <span class="art">
       {#if p.cover}<img use:fade src={img(p.cover, 200)} alt="" decoding="async" />{/if}
+      {#if app.source === 'all'}<span class="src-tag">{sourceShort(p.source)}</span>{/if}
       <span class="play-badge" aria-hidden="true"><Icon name="play" /></span>
     </span>
     <span class="card-title clamp2">{p.name}</span>
@@ -125,6 +127,7 @@
       <span class="s-txt">
         <span class="s-name ellipsis">{t.name}</span>
         <span class="s-sub ellipsis">
+          {#if app.source === 'all'}<span class="badge">{sourceShort(t.source)}</span>{/if}
           {#if t.fee === 1}<span class="badge vip">VIP</span>{/if}
           {artists(t)}
         </span>
@@ -155,8 +158,41 @@
     font: 700 32px/1.15 var(--font-display);
     letter-spacing: -0.028em;
   }
-  .who {
-    font-size: 13px;
+  .tabs {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--bg-2);
+    gap: 2px;
+  }
+  .tabs button {
+    height: 26px;
+    padding: 0 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-2);
+    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+  }
+  .tabs button:hover {
+    color: var(--fg);
+  }
+  .tabs button.on {
+    background: var(--bg-elev);
+    color: var(--fg);
+    box-shadow: var(--shadow-sm);
+  }
+  .src-tag {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.52);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
   }
   section {
     margin-top: 32px;

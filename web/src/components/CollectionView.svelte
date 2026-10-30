@@ -20,6 +20,7 @@
     scroller,
     isAlbum = false,
     onreachend,
+    subhead,
     footer,
   }: {
     kind: 'collection' | 'search';
@@ -33,6 +34,7 @@
     scroller: HTMLElement | undefined;
     isAlbum?: boolean;
     onreachend?: () => void;
+    subhead?: import('svelte').Snippet;
     footer?: import('svelte').Snippet;
   } = $props();
 
@@ -104,6 +106,7 @@
         <p>{description}</p>
       </button>
     {/if}
+    {#if subhead}{@render subhead()}{/if}
     <div class="cta">
       <button class="btn primary lg" onclick={() => playAll()} disabled={!picked.length}>
         <Icon name="play" />播放

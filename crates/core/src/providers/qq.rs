@@ -11,6 +11,8 @@ use crate::source::{BoxFut, Source};
 #[derive(Clone)]
 pub struct QQ {
     http: reqwest::Client,
+    cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
+    home_cache: std::sync::Arc<std::sync::RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 impl Default for QQ {
@@ -34,7 +36,11 @@ impl QQ {
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("qq http");
-        Self { http }
+        Self {
+            http,
+            cookie: Default::default(),
+            home_cache: Default::default(),
+        }
     }
 
     fn get(&self, url: &str, params: &[(&str, String)]) -> BoxFut<'static, Value> {
@@ -42,12 +48,16 @@ impl QQ {
         let params: Vec<(String, String)> = params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
         let this = self.clone();
         Box::pin(async move {
-            let resp = this
+            let mut rb = this
                 .http
                 .get(&url)
                 .query(&params)
                 .header(reqwest::header::REFERER, "https://y.qq.com/")
-                .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+                .header(reqwest::header::USER_AGENT, "Mozilla/5.0");
+            if let Some(c) = this.cookie.read().unwrap().as_deref() {
+                rb = rb.header(reqwest::header::COOKIE, c);
+            }
+            let resp = rb
                 .timeout(std::time::Duration::from_secs(20))
                 .send()
                 .await?;
@@ -98,8 +108,40 @@ impl QQ {
         }
     }
 
+    fn cookie_val(&self, keys: &[&str]) -> String {
+        let Some(raw) = self.cookie.read().unwrap().clone() else { return String::new() };
+        for part in raw.split(';') {
+            if let Some((k, v)) = part.trim().split_once('=') {
+                if keys.contains(&k.trim()) {
+                    return v.trim().to_owned();
+                }
+            }
+        }
+        String::new()
+    }
+
+    async fn musicu(&self, body: Value) -> Result<Value> {
+        let mut rb = self
+            .http
+            .post("https://u.y.qq.com/cgi-bin/musicu.fcg")
+            .header(reqwest::header::REFERER, "https://y.qq.com/")
+            .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(20));
+        if let Some(c) = self.cookie.read().unwrap().as_deref() {
+            rb = rb.header(reqwest::header::COOKIE, c);
+        }
+        Ok(rb.send().await?.json().await?)
+    }
+
     async fn vkey(&self, mid: &str, prefix: &str, ext: &str) -> Result<(String, i64)> {
         let filename = format!("{prefix}{mid}.{ext}");
+        let uin = {
+            let u = self.cookie_val(&["uin", "wxuin"]);
+            let u = u.trim_start_matches('o').to_owned();
+            if u.is_empty() { "0".into() } else { u }
+        };
+        let authst = self.cookie_val(&["qqmusic_key", "qm_keyst"]);
         let payload = json!({
             "req_0": {
                 "module": "vkey.GetVkeyServer",
@@ -109,12 +151,18 @@ impl QQ {
                     "guid": format!("{:032x}", rand::random::<u128>()),
                     "songmid": [mid],
                     "songtype": [0],
-                    "uin": "0",
+                    "uin": uin,
                     "loginflag": 1,
                     "platform": "20",
                 },
             },
-            "comm": { "uin": 0, "format": "json", "ct": 19, "cv": 0, "authst": "" },
+            "comm": {
+                "uin": uin.parse::<u64>().unwrap_or(0),
+                "format": "json",
+                "ct": 19,
+                "cv": 0,
+                "authst": authst,
+            },
         });
         let v = self
             .get(
@@ -263,6 +311,35 @@ impl Source for QQ {
         let id = id.to_string();
         Box::pin(async move {
             match kind {
+                CollectionKind::Toplist => {
+                    let top_id: u64 = id.parse().map_err(|_| Error::Invalid("QQ 榜单 ID 无效".into()))?;
+                    let v = self
+                        .musicu(json!({
+                            "comm": { "ct": 24, "cv": 0 },
+                            "req_0": {
+                                "module": "musicToplist.ToplistInfoServer",
+                                "method": "GetDetail",
+                                "param": { "topId": top_id, "offset": 0, "num": 100 },
+                            }
+                        }))
+                        .await?;
+                    let data = &v["req_0"]["data"];
+                    let items = data["songInfoList"].as_array().cloned().unwrap_or_default();
+                    let tracks: Vec<Track> = items.iter().map(Self::song).collect();
+                    let info = &data["data"];
+                    Ok(Collection {
+                        kind: CollectionKind::Toplist,
+                        id: id.to_string(),
+                        source: "qq".into(),
+                        name: s(&info["title"]),
+                        cover: s(first_str(info, &["frontPicUrl", "headPicUrl"])).replacen("http://", "https://", 1),
+                        owner: "QQ音乐".into(),
+                        description: s(&info["intro"]),
+                        publish_time: None,
+                        track_count: tracks.len(),
+                        tracks,
+                    })
+                }
                 CollectionKind::Playlist => {
                     let v = self
                         .get(
@@ -358,6 +435,92 @@ impl Source for QQ {
                     })
                 }
             }
+        })
+    }
+
+    fn set_cookie(&self, cookie: Option<String>) {
+        *self.cookie.write().unwrap() = cookie.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
+    }
+
+    fn has_cookie(&self) -> bool {
+        self.cookie.read().unwrap().is_some()
+    }
+
+    fn home(&self) -> BoxFut<'_, HomeFeed> {
+        Box::pin(async move {
+            if let Some((t, f)) = self.home_cache.read().unwrap().as_ref() {
+                if t.elapsed() < std::time::Duration::from_secs(900) {
+                    return Ok(f.clone());
+                }
+            }
+            let v = self
+                .musicu(json!({
+                    "comm": { "ct": 24, "cv": 0 },
+                    "recom": {
+                        "module": "playlist.HotRecommendServer",
+                        "method": "get_hot_recommend",
+                        "param": { "cmd": 0, "async": 1 }
+                    },
+                    "top": {
+                        "module": "musicToplist.ToplistInfoServer",
+                        "method": "GetAll",
+                        "param": {}
+                    },
+                    "new": {
+                        "module": "newsong.NewSongServer",
+                        "method": "get_new_song_info",
+                        "param": { "type": 5 }
+                    }
+                }))
+                .await?;
+            let playlists = v["recom"]["data"]["v_hot"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .take(10)
+                        .map(|x| PlaylistBrief {
+                            id: s(&x["content_id"]),
+                            source: "qq".into(),
+                            kind: CollectionKind::Playlist,
+                            name: s(&x["title"]),
+                            cover: s(&x["cover"]).replacen("http://", "https://", 1),
+                            subtitle: s(&x["rcmdcontent"]),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let mut charts = Vec::new();
+            if let Some(groups) = v["top"]["data"]["group"].as_array() {
+                for g in groups {
+                    if let Some(list) = g["toplist"].as_array() {
+                        for t in list {
+                            if charts.len() >= 8 {
+                                break;
+                            }
+                            charts.push(PlaylistBrief {
+                                id: s(&t["topId"]),
+                                source: "qq".into(),
+                                kind: CollectionKind::Toplist,
+                                name: s(&t["title"]),
+                                cover: s(&t["frontPicUrl"]).replacen("http://", "https://", 1),
+                                subtitle: s(&t["updateTips"]),
+                            });
+                        }
+                    }
+                }
+            }
+            let new_songs = v["new"]["data"]["lanlist"]
+                .as_array()
+                .and_then(|a| a.first())
+                .and_then(|x| x["songlist"].as_array())
+                .or_else(|| v["new"]["data"]["songlist"].as_array())
+                .map(|a| a.iter().take(12).map(Self::song).collect())
+                .unwrap_or_default();
+            let feed = HomeFeed { playlists, charts, new_songs };
+            if !feed.playlists.is_empty() || !feed.charts.is_empty() {
+                *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
+            }
+            Ok(feed)
         })
     }
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::api::Netease;
 use crate::error::{Error, Result};
-use crate::model::{Collection, CollectionKind, Lyric, Resolved, SongUrl, Track};
+use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, Resolved, SongUrl, Track};
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
@@ -27,6 +27,17 @@ pub trait Source: Send + Sync {
     fn collection(&self, kind: CollectionKind, id: &str) -> BoxFut<'_, Collection>;
     fn song_url<'a>(&'a self, id: &'a str, level: &'a str) -> BoxFut<'a, SongUrl>;
     fn lyric<'a>(&'a self, id: &'a str) -> BoxFut<'a, Lyric>;
+
+    /// 首页推荐内容。默认为空。
+    fn home(&self) -> BoxFut<'_, HomeFeed> {
+        Box::pin(async { Ok(HomeFeed::default()) })
+    }
+
+    /// 设置平台 Cookie（内存态），返回是否支持。
+    fn set_cookie(&self, _cookie: Option<String>) {}
+    fn has_cookie(&self) -> bool {
+        false
+    }
 
     /// 按显示尺寸返回封面地址，默认原样返回
     fn sized_cover(&self, url: &str, _size: u32) -> String {
@@ -100,17 +111,73 @@ impl Sources {
             .ok_or_else(|| Error::Invalid("短链接无法解析".into()))
     }
 
-    /// 聚合搜索：并发请求各音源，标注来源，失败的音源忽略
+    /// 聚合搜索：并发请求各音源，结果交替穿插（避免单一平台占满前排）。
     pub async fn search_all(&self, keywords: &str, limit: u32) -> Vec<Track> {
-        let futs = self.list.iter().map(|s| async move {
-            s.search(keywords, limit, 0).await.unwrap_or_default()
-        });
-        let mut out = Vec::new();
-        for tracks in futures_util::future::join_all(futs).await {
-            out.extend(tracks);
-        }
-        out
+        let per = (limit / self.list.len().max(1) as u32).max(8);
+        let lists = futures_util::future::join_all(
+            self.list.iter().map(|s| async move { s.search(keywords, per, 0).await.unwrap_or_default() }),
+        )
+        .await;
+        interleave(lists)
     }
+
+    /// 首页内容：`source` 为 "all" 或空时聚合所有音源，否则只取指定音源。
+    pub async fn home(&self, source: &str) -> Result<HomeFeed> {
+        if !source.is_empty() && source != "all" {
+            let s = self.get(source).ok_or_else(|| Error::Invalid(format!("未知音源：{source}")))?;
+            return s.home().await;
+        }
+        let feeds = futures_util::future::join_all(
+            self.list.iter().map(|s| async move { s.home().await.unwrap_or_default() }),
+        )
+        .await;
+        Ok(HomeFeed {
+            playlists: interleave(feeds.iter().map(|f| f.playlists.clone()).collect()),
+            charts: interleave(feeds.iter().map(|f| f.charts.clone()).collect()),
+            new_songs: interleave(feeds.into_iter().map(|f| f.new_songs).collect()),
+        })
+    }
+
+    /// 在其它音源中按“歌名 + 歌手”寻找可播放的替代曲目（同音源失败时的换源兜底）。
+    pub async fn find_playable(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Option<(Track, SongUrl)> {
+        let q = format!("{name} {artist}").trim().to_owned();
+        for s in &self.list {
+            if s.id() == skip_source {
+                continue;
+            }
+            let Ok(candidates) = s.search(&q, 5, 0).await else { continue };
+            for t in candidates.into_iter().filter(|t| t.availability != crate::model::Availability::None) {
+                if let Ok(u) = s.song_url(&t.id, level).await {
+                    if u.trial.is_none() {
+                        return Some((t, u));
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+fn interleave<T>(lists: Vec<Vec<T>>) -> Vec<T> {
+    let max = lists.iter().map(Vec::len).max().unwrap_or(0);
+    let mut out = Vec::new();
+    for i in 0..max {
+        for l in &lists {
+            if let Some(v) = l.get(i) {
+                // safety: index valid; clone via index move below
+                let _ = v;
+            }
+        }
+    }
+    let mut iters: Vec<_> = lists.into_iter().map(Vec::into_iter).collect();
+    for _ in 0..max {
+        for it in &mut iters {
+            if let Some(v) = it.next() {
+                out.push(v);
+            }
+        }
+    }
+    out
 }
 
 // ---------------- 网易云适配 ----------------
@@ -149,7 +216,7 @@ impl Source for Netease {
         Box::pin(async move {
             let n = to_u64(&id)?;
             match kind {
-                CollectionKind::Playlist => self.playlist(n).await,
+                CollectionKind::Playlist | CollectionKind::Toplist => self.playlist(n).await,
                 CollectionKind::Album => self.album(n).await,
             }
         })
@@ -159,6 +226,15 @@ impl Source for Netease {
     }
     fn lyric<'a>(&'a self, id: &'a str) -> BoxFut<'a, Lyric> {
         Box::pin(async move { Netease::lyric(self, to_u64(id)?).await })
+    }
+    fn home(&self) -> BoxFut<'_, HomeFeed> {
+        Box::pin(Netease::home(self))
+    }
+    fn set_cookie(&self, cookie: Option<String>) {
+        self.set_music_u(cookie);
+    }
+    fn has_cookie(&self) -> bool {
+        self.music_u().is_some()
     }
     fn sized_cover(&self, url: &str, size: u32) -> String {
         crate::download::sized_cover(url, size)

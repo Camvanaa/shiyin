@@ -412,7 +412,9 @@ impl Netease {
                     a.iter()
                         .take(10)
                         .map(|x| PlaylistBrief {
-                            id: u(&x["id"]),
+                            id: u(&x["id"]).to_string(),
+                            source: "netease".into(),
+                            kind: CollectionKind::Playlist,
                             name: s(&x["name"]),
                             cover: s(&x["picUrl"]).replacen("http://", "https://", 1),
                             subtitle: s(&x["copywriter"]),
@@ -429,7 +431,9 @@ impl Netease {
                     a.iter()
                         .take(8)
                         .map(|x| PlaylistBrief {
-                            id: u(&x["id"]),
+                            id: u(&x["id"]).to_string(),
+                            source: "netease".into(),
+                            kind: CollectionKind::Playlist,
                             name: s(&x["name"]),
                             cover: s(&x["coverImgUrl"]).replacen("http://", "https://", 1),
                             subtitle: s(&x["updateFrequency"]),

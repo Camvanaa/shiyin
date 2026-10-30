@@ -107,6 +107,15 @@
               {scroller}
               onreachend={() => app.searchMore()}
             >
+              {#snippet subhead()}
+                <div class="src-tabs" role="tablist" aria-label="切换搜索音源">
+                  {#each [['all', '全部音源'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
+                    <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
+                      {label}
+                    </button>
+                  {/each}
+                </div>
+              {/snippet}
               {#snippet footer()}
                 <div class="more">
                   {#if app.loading}<span class="spinner"></span>{:else if v.done}<span class="faint">没有更多了</span>{/if}
@@ -119,7 +128,7 @@
             {@const c = v.data}
             <CollectionView
               kind="collection"
-              eyebrow={c.kind === 'album' ? '专辑' : '歌单'}
+              eyebrow={`${c.source === 'qq' ? 'QQ音乐' : c.source === 'kuwo' ? '酷我音乐' : '网易云'} · ${c.kind === 'album' ? '专辑' : c.kind === 'toplist' ? '排行榜' : '歌单'}`}
               title={c.name}
               owner={c.owner}
               meta={c.kind === 'album' ? year(c.publishTime) : ''}
@@ -267,6 +276,29 @@
     color: var(--accent);
     font-size: 13px;
     animation: rise var(--t) var(--ease-out);
+  }
+  .src-tabs {
+    display: inline-flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .src-tabs button {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-2);
+    color: var(--fg-2);
+    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .src-tabs button:hover {
+    color: var(--fg);
+  }
+  .src-tabs button.on {
+    background: var(--fg);
+    color: var(--bg);
   }
   .more {
     display: grid;

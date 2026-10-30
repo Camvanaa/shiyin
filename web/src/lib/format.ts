@@ -30,3 +30,11 @@ export function img(url: string, css: number): string {
 export function year(ts: number | null): string {
   return ts ? String(new Date(ts).getFullYear()) : '';
 }
+
+export function sourceName(id: string): string {
+  return id === 'qq' ? 'QQ音乐' : id === 'kuwo' ? '酷我音乐' : id === 'netease' ? '网易云' : id;
+}
+
+export function sourceShort(id: string): string {
+  return id === 'qq' ? 'QQ' : id === 'kuwo' ? '酷我' : '网易';
+}

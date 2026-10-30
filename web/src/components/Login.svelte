@@ -4,6 +4,9 @@
   import { app } from '../lib/app.svelte';
   import { api, isTauri } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
+
+  let platform = $state<'netease' | 'qq' | 'kuwo'>('netease');
+  let extCookie = $state('');
   import type { QrState } from '../lib/types';
 
   let mode = $state<'qr' | 'cookie'>('qr');
@@ -86,7 +89,27 @@
   const vip = (t: number) => (t >= 11 ? '黑胶 SVIP' : t > 0 ? '黑胶 VIP' : '普通用户');
 </script>
 
-<Sheet {open} onclose={() => (app.sheet = null)} title={app.account ? '账号' : '登录网易云音乐'} width={400}>
+<Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={420}>
+  <div class="seg plat" role="tablist">
+    {#each [['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as const as [id, label]}
+      <button class:on={platform === id} onclick={() => ((platform = id), (extCookie = ''))} role="tab" aria-selected={platform === id}>{label}</button>
+    {/each}
+  </div>
+  {#if platform !== 'netease'}
+    {@const info = app.sources.find((x) => x.id === platform)}
+    <div class="cookie">
+      <p class="muted">
+        {platform === 'qq' ? '粘贴 y.qq.com 已登录的 Cookie（需含 uin 与 qqmusic_key）以访问绿钻曲库。' : '粘贴 kuwo.cn 已登录的 Cookie。'}当前状态：{info?.hasCookie ? '已配置' : '未配置'}。
+      </p>
+      <textarea class="input" rows="4" bind:value={extCookie} placeholder="粘贴 Cookie" spellcheck="false"></textarea>
+      <div class="row-btns">
+        {#if info?.hasCookie}
+          <button class="btn lg" onclick={async () => { await api.setSourceCookie(platform, null); app.sources = await api.sources(); toast.info('已清除凭证'); }}>清除</button>
+        {/if}
+        <button class="btn primary lg" disabled={!extCookie.trim()} onclick={async () => { await api.setSourceCookie(platform, extCookie.trim()); extCookie = ''; app.sources = await api.sources(); app.loadHome(); toast.success('凭证已保存'); }}>保存</button>
+      </div>
+    </div>
+  {:else}
   {#if app.account}
     <div class="me">
       <img src={app.account.avatar + '?param=128y128'} alt="" width="72" height="72" />
@@ -128,6 +151,7 @@
         </button>
       </div>
     {/if}
+  {/if}
   {/if}
 </Sheet>
 
@@ -251,6 +275,23 @@
     font-size: 12px;
     resize: none;
     word-break: break-all;
+  }
+  .seg.plat {
+    grid-template-columns: 1fr 1fr 1fr;
+    margin-bottom: 14px;
+  }
+  .seg.plat button.on {
+    background: var(--bg-elev);
+    border-radius: 7px;
+    box-shadow: var(--shadow-sm);
+  }
+  .row-btns {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .row-btns .btn {
+    flex: 1;
   }
   .cookie .btn {
     width: 100%;
