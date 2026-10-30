@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+const path = require('path');
+const cli = path.resolve(__dirname, '../web/node_modules/@tauri-apps/cli/tauri.js');
+require(cli);
