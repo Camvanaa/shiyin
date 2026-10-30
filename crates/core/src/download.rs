@@ -194,10 +194,10 @@ pub async fn download(
     let cover_url = if opts.compress_cover { src.sized_cover(&t.cover, 640) } else { t.cover.clone() };
 
     let (song, lyric, cover) = tokio::join!(
-        src.song_url(t.id, &opts.level),
+        src.song_url(&t.id, &opts.level),
         async {
             if need_lyric {
-                src.lyric(t.id).await.ok()
+                src.lyric(&t.id).await.ok()
             } else {
                 None
             }

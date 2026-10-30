@@ -64,7 +64,7 @@ class Player {
       if (!a.src || !this.current) return;
       this.loading = false;
       // 地址可能过期，丢弃缓存后重试一次
-      const key = `${this.current.id}:${settings.playLevel}`;
+      const key = `${this.current.source}:${this.current.id}:${settings.playLevel}`;
       if (this.#urlCache.delete(key)) this.#load(true);
       else toast.error('播放失败', this.current.name);
     });
@@ -107,10 +107,10 @@ class Player {
   }
 
   async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean }> {
-    const key = `${t.id}:${settings.playLevel}`;
+    const key = `${t.source}:${t.id}:${settings.playLevel}`;
     const c = this.#urlCache.get(key);
     if (c && c.exp > Date.now()) return c;
-    const r = await api.songUrl(t.id, settings.playLevel);
+    const r = await api.songUrl(t.id, settings.playLevel, t.source);
     // 网易云的地址一般 20 分钟后失效，保守缓存 15 分钟
     const v = { url: r.url, level: r.level, trial: !!r.trial, exp: Date.now() + 15 * 60_000 };
     this.#urlCache.set(key, v);
@@ -137,7 +137,7 @@ class Player {
     try {
       const [u, l] = await Promise.all([
         this.#resolveUrl(t),
-        keepTime ? Promise.resolve(null) : api.lyric(t.id).catch(() => null),
+        keepTime ? Promise.resolve(null) : api.lyric(t.id, t.source).catch(() => null),
       ]);
       if (token !== this.#token) return;
       if (l) this.lyric = parseLyric(l.lrc, l.tlrc);

@@ -11,8 +11,8 @@
 
   let { track }: { track: Track } = $props();
 
-  const lyric = $derived(api.lyric(track.id).then((l) => parseLyric(l.lrc, l.tlrc)));
-  const info = $derived(api.songUrl(track.id, settings.level).catch(() => null));
+  const lyric = $derived(api.lyric(track.id, track.source).then((l) => parseLyric(l.lrc, l.tlrc)));
+  const info = $derived(api.songUrl(track.id, settings.level, track.source).catch(() => null));
   const levelLabel = (v: string) => LEVELS.find((l) => l.value === v)?.label ?? v;
   const isCurrent = $derived(player.current?.id === track.id);
 </script>
@@ -26,7 +26,7 @@
     <h1>{track.name}</h1>
     {#if track.alias}<div class="alias muted">{track.alias}</div>{/if}
     <div class="owner">{artists(track)}</div>
-    <button class="album" onclick={() => app.openCollection('album', track.albumId)}>
+    <button class="album" onclick={() => app.openCollection('album', track.albumId, undefined, track.source)}>
       <Icon name="disc" />{track.album}<Icon name="chevronRight" />
     </button>
 

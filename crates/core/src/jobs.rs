@@ -11,7 +11,7 @@ use std::time::Instant;
 use serde::Serialize;
 use tokio::sync::{watch, Semaphore};
 
-use crate::source::DynSource;
+use crate::source::Sources;
 use crate::download::{self, Cancel, DownloadItem, DownloadOptions};
 use crate::error::Error;
 
@@ -29,7 +29,7 @@ pub enum Status {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemState {
-    pub id: u64,
+    pub id: String,
     pub name: String,
     pub artist: String,
     pub status: Status,
@@ -124,7 +124,7 @@ pub struct JobManager {
 }
 
 struct Inner {
-    src: DynSource,
+    sources: Sources,
     jobs: Mutex<Vec<Job>>,
     slots: Arc<Semaphore>,
     limit: Mutex<usize>,
@@ -147,11 +147,11 @@ pub struct NewJob {
 }
 
 impl JobManager {
-    pub fn new(src: DynSource, concurrency: usize, finisher: Option<Finisher>) -> Self {
+    pub fn new(sources: Sources, concurrency: usize, finisher: Option<Finisher>) -> Self {
         let c = concurrency.clamp(1, 10);
         Self {
             inner: Arc::new(Inner {
-                src,
+                sources,
                 jobs: Mutex::new(Vec::new()),
                 slots: Arc::new(Semaphore::new(c)),
                 limit: Mutex::new(c),
@@ -206,7 +206,7 @@ impl JobManager {
             .items
             .iter()
             .map(|it| ItemState {
-                id: it.track.id,
+                id: it.track.id.clone(),
                 name: it.track.name.clone(),
                 artist: it.track.artist_names(),
                 status: Status::Waiting,
@@ -303,11 +303,22 @@ impl JobManager {
                 Some((job.items[idx].clone(), job.opts.clone(), job.snap.dir.clone()))
             });
             let Some(Some((item, opts, dir))) = prepared else { return };
+        let src = match self.inner.sources.for_track(&item.track) {
+            Ok(s) => s.clone(),
+            Err(e) => {
+                self.with_job(id, |job| {
+                    job.snap.items[idx].status = Status::Failed;
+                    job.snap.items[idx].error = Some(e.to_string());
+                });
+                self.bump();
+                return;
+            }
+        };
             self.bump();
 
             let mut last = Instant::now();
             let me = self.clone();
-            let res = download::download(self.inner.src.as_ref(), &item, &opts, &dir, &cancel, move |done, total| {
+            let res = download::download(src.as_ref(), &item, &opts, &dir, &cancel, move |done, total| {
                 // 限制更新频率，避免锁竞争
                 if last.elapsed().as_millis() < 120 && done < total {
                     return;

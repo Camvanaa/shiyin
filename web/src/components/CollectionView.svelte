@@ -37,7 +37,7 @@
   } = $props();
 
   let selecting = $state(false);
-  let selected = $state(new Set<number>());
+  let selected = $state(new Set<string>());
   let filter = $state('');
   let descOpen = $state(false);
 

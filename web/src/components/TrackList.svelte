@@ -10,7 +10,7 @@
     tracks,
     scroller,
     selectable = false,
-    selected = $bindable(new Set<number>()),
+    selected = $bindable(new Set<string>()),
     showAlbum = true,
     showCover = true,
     numbered = false,
@@ -21,7 +21,7 @@
     /** 外层滚动容器，用于虚拟滚动 */
     scroller: HTMLElement | undefined;
     selectable?: boolean;
-    selected?: Set<number>;
+    selected?: Set<string>;
     showAlbum?: boolean;
     showCover?: boolean;
     numbered?: boolean;
@@ -74,7 +74,7 @@
     };
   });
 
-  function toggle(id: number) {
+  function toggle(id: string) {
     const s = new Set(selected);
     if (s.has(id)) s.delete(id);
     else s.add(id);
@@ -146,6 +146,7 @@
             {t.name}{#if t.alias}<span class="alias">（{t.alias}）</span>{/if}
           </div>
           <div class="sub ellipsis">
+            {#if t.source && t.source !== 'netease'}<span class="badge src">{t.source === 'qq' ? 'QQ' : '酷我'}</span>{/if}
             {#if t.availability === 'none'}<span class="badge">无版权</span>
             {:else if t.availability === 'paid'}<span class="badge vip">付费</span>
             {:else if t.fee === 1}<span class="badge vip">VIP</span>{/if}
@@ -180,8 +181,8 @@
     <button role="menuitem" onclick={() => app.download([t], t.name, { subtitle: artists(t), cover: t.cover })}
       ><Icon name="download" />下载</button
     >
-    <button role="menuitem" onclick={() => app.openSong(t.id)}><Icon name="note" />歌曲详情</button>
-    <button role="menuitem" onclick={() => app.openCollection('album', t.albumId)}><Icon name="disc" />前往专辑</button>
+    <button role="menuitem" onclick={() => app.openSong(t.id, undefined, t.source)}><Icon name="note" />歌曲详情</button>
+    <button role="menuitem" onclick={() => app.openCollection('album', t.albumId, undefined, t.source)}><Icon name="disc" />前往专辑</button>
     <button role="menuitem" onclick={() => navigator.clipboard?.writeText(`https://music.163.com/song?id=${t.id}`)}
       ><Icon name="link" />复制链接</button
     >

@@ -18,9 +18,10 @@ export function artists(t: { artists: { name: string }[] }): string {
   return t.artists.map((a) => a.name).join(' / ');
 }
 
-/** 网易云图片按显示尺寸裁剪，按设备像素比取整到常用尺寸 */
+/** 封面按显示尺寸裁剪（仅网易云支持 ?param=，其他平台用原图） */
 export function img(url: string, css: number): string {
   if (!url) return '';
+  if (!url.includes('126.net')) return url;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const px = [64, 100, 160, 240, 400, 640, 800].find((s) => s >= css * dpr) ?? 800;
   return `${url.split('?')[0]}?param=${px}y${px}`;

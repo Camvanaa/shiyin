@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use shiyin_core::download::{DownloadItem, DownloadOptions};
 use shiyin_core::jobs::{JobManager, NewJob, Status};
-use shiyin_core::{link, Error as CoreError, Track};
+use shiyin_core::{Error as CoreError, Track};
 use subtle::ConstantTimeEq;
 
 use crate::AppState;
@@ -61,7 +61,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         }
         zip_files(&snap.dir, &snap.title, &files).ok()
     });
-    let jobs = JobManager::new(std::sync::Arc::new(app.api.clone()), 3, Some(finisher));
+    let jobs = JobManager::new(app.sources.clone(), 3, Some(finisher));
 
     // 定期清理结束超过 2 小时的任务及其临时文件
     let jm = jobs.clone();
@@ -78,6 +78,7 @@ pub fn router(app: Arc<AppState>) -> Router {
     let ctx = Ctx { app: app.clone(), jobs };
 
     let api = Router::new()
+        .route("/sources", get(sources))
         .route("/home", get(home))
         .route("/resolve", get(resolve))
         .route("/search", get(search))
@@ -152,7 +153,18 @@ async fn home(State(c): State<Ctx>) -> R<shiyin_core::HomeFeed> {
 }
 
 async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<Value> {
-    Ok(Json(serde_json::to_value(link::resolve(&c.app.api, &q.q).await?).unwrap()))
+    Ok(Json(serde_json::to_value(c.app.sources.resolve(&q.q).await?).unwrap()))
+}
+
+async fn sources(State(c): State<Ctx>) -> Json<Value> {
+    let list: Vec<Value> = c
+        .app
+        .sources
+        .list()
+        .iter()
+        .map(|s| json!({ "id": s.id(), "label": s.label(), "levels": s.levels() }))
+        .collect();
+    Json(json!(list))
 }
 
 #[derive(Deserialize)]
@@ -162,6 +174,8 @@ struct SearchQ {
     limit: u32,
     #[serde(default)]
     offset: u32,
+    #[serde(default)]
+    source: String,
 }
 
 fn default_limit() -> u32 {
@@ -169,33 +183,49 @@ fn default_limit() -> u32 {
 }
 
 async fn search(State(c): State<Ctx>, Query(q): Query<SearchQ>) -> R<Vec<Track>> {
-    Ok(Json(c.app.api.search(&q.q, q.limit, q.offset).await?))
+    if q.source.is_empty() || q.source == "all" {
+        return Ok(Json(c.app.sources.search_all(&q.q, q.limit).await));
+    }
+    let src = pick(&c, &q.source)?;
+    Ok(Json(src.search(&q.q, q.limit, q.offset).await?))
 }
 
-async fn song(State(c): State<Ctx>, UrlPath(id): UrlPath<u64>) -> R<Track> {
-    let mut v = c.app.api.song_details(&[id]).await?;
-    v.pop().map(Json).ok_or_else(|| ApiError(StatusCode::NOT_FOUND, "歌曲不存在".into()))
+async fn song(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<Track> {
+    Ok(Json(pick(&c, &q.source)?.track(&id).await?))
 }
 
 #[derive(Deserialize)]
 struct LevelQ {
     level: String,
+    #[serde(default)]
+    source: String,
 }
 
-async fn song_url(State(c): State<Ctx>, UrlPath(id): UrlPath<u64>, Query(q): Query<LevelQ>) -> R<shiyin_core::SongUrl> {
-    Ok(Json(c.app.api.song_url(id, &q.level).await?))
+#[derive(Deserialize)]
+struct SourceQ {
+    #[serde(default)]
+    source: String,
 }
 
-async fn lyric(State(c): State<Ctx>, UrlPath(id): UrlPath<u64>) -> R<shiyin_core::Lyric> {
-    Ok(Json(c.app.api.lyric(id).await?))
+fn pick<'a>(c: &'a Ctx, source: &str) -> Result<&'a shiyin_core::DynSource, ApiError> {
+    let key = if source.is_empty() { "netease" } else { source };
+    c.app.sources.get(key).ok_or_else(|| ApiError(StatusCode::BAD_REQUEST, format!("未知音源：{key}")))
 }
 
-async fn playlist(State(c): State<Ctx>, UrlPath(id): UrlPath<u64>) -> R<shiyin_core::Collection> {
-    Ok(Json(c.app.api.playlist(id).await?))
+async fn song_url(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<LevelQ>) -> R<shiyin_core::SongUrl> {
+    Ok(Json(pick(&c, &q.source)?.song_url(&id, &q.level).await?))
 }
 
-async fn album(State(c): State<Ctx>, UrlPath(id): UrlPath<u64>) -> R<shiyin_core::Collection> {
-    Ok(Json(c.app.api.album(id).await?))
+async fn lyric(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Lyric> {
+    Ok(Json(pick(&c, &q.source)?.lyric(&id).await?))
+}
+
+async fn playlist(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
+    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Playlist, &id).await?))
+}
+
+async fn album(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
+    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Album, &id).await?))
 }
 
 async fn account(State(c): State<Ctx>) -> R<Value> {

@@ -73,6 +73,21 @@
 
 <div class="box" class:focused class:open>
   <div class="field">
+    {#if app.sources.length}
+      <div class="srcpick">
+        <select
+          value={app.source}
+          onchange={(e) => app.setSource((e.target as HTMLSelectElement).value)}
+          aria-label="音源"
+        >
+          <option value="all">全部</option>
+          {#each app.sources as src}
+            <option value={src.id}>{src.label.replace('音乐', '')}</option>
+          {/each}
+        </select>
+        <span class="divider"></span>
+      </div>
+    {/if}
     <span class="lead">
       {#if app.loading}<span class="spinner"></span>{:else}<Icon name={looksLikeLink ? 'link' : 'search'} />{/if}
     </span>
@@ -144,6 +159,33 @@
   .focused .field {
     background: var(--bg-elev);
     box-shadow: 0 0 0 1px var(--line-2), 0 0 0 4px var(--accent-soft);
+  }
+  .srcpick {
+    display: flex;
+    align-items: center;
+    flex: none;
+    margin-left: 4px;
+  }
+  .srcpick select {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--fg-2);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0 4px 0 8px;
+    height: 28px;
+    outline: none;
+    max-width: 76px;
+  }
+  .srcpick select:hover {
+    color: var(--fg);
+  }
+  .divider {
+    width: 0.5px;
+    height: 16px;
+    background: var(--line-2);
+    margin: 0 4px;
   }
   .lead {
     width: 36px;

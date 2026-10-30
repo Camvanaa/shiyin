@@ -5,10 +5,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use shiyin_core::store::CredentialStore;
-use shiyin_core::Netease;
+use shiyin_core::{Netease, Sources};
 
 pub struct AppState {
     pub api: Netease,
+    pub sources: Sources,
     pub store: CredentialStore,
     pub token: Option<String>,
     pub tmp: PathBuf,
@@ -58,7 +59,8 @@ async fn main() {
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).expect("无法创建临时目录");
 
-    let state = Arc::new(AppState { api, store, token, tmp });
+    let sources = Sources::new(api.clone());
+    let state = Arc::new(AppState { api, sources, store, token, tmp });
     let app = routes::router(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("端口被占用");

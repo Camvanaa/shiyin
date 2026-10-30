@@ -7,16 +7,22 @@ use serde_json::{json, Value};
 use shiyin_core::download::{DownloadItem, DownloadOptions};
 use shiyin_core::jobs::{JobManager, JobSnapshot, JobSummary, NewJob};
 use shiyin_core::store::CredentialStore;
-use shiyin_core::{link, Account, Collection, Lyric, Netease, QrStart, Resolved, SongUrl, Track};
+use shiyin_core::{Account, Collection, CollectionKind, Lyric, Netease, QrStart, Resolved, SongUrl, Sources, Track};
 use tauri::{Emitter, Manager, State};
 
 struct Ctx {
     api: Netease,
+    sources: Sources,
     store: CredentialStore,
     jobs: JobManager,
 }
 
 type R<T> = Result<T, String>;
+
+fn pick<'a>(s: &'a State<'a, Ctx>, source: &str) -> Result<&'a shiyin_core::DynSource, String> {
+    let key = if source.is_empty() { "netease" } else { source };
+    s.sources.get(key).ok_or_else(|| format!("未知音源：{key}"))
+}
 
 fn e<E: ToString>(err: E) -> String {
     err.to_string()
@@ -29,37 +35,49 @@ async fn home(s: State<'_, Ctx>) -> R<shiyin_core::HomeFeed> {
 
 #[tauri::command]
 async fn resolve(s: State<'_, Ctx>, q: String) -> R<Resolved> {
-    link::resolve(&s.api, &q).await.map_err(e)
+    s.sources.resolve(&q).await.map_err(e)
 }
 
 #[tauri::command]
-async fn search(s: State<'_, Ctx>, q: String, limit: u32, offset: u32) -> R<Vec<Track>> {
-    s.api.search(&q, limit, offset).await.map_err(e)
+fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
+    s.sources
+        .list()
+        .iter()
+        .map(|x| serde_json::json!({ "id": x.id(), "label": x.label(), "levels": x.levels() }))
+        .collect()
 }
 
 #[tauri::command]
-async fn song(s: State<'_, Ctx>, id: u64) -> R<Track> {
-    s.api.song_details(&[id]).await.map_err(e)?.pop().ok_or_else(|| "歌曲不存在".into())
+async fn search(s: State<'_, Ctx>, q: String, limit: u32, offset: u32, source: String) -> R<Vec<Track>> {
+    if source.is_empty() || source == "all" {
+        return Ok(s.sources.search_all(&q, limit).await);
+    }
+    pick(&s, &source)?.search(&q, limit, offset).await.map_err(e)
 }
 
 #[tauri::command]
-async fn song_url(s: State<'_, Ctx>, id: u64, level: String) -> R<SongUrl> {
-    s.api.song_url(id, &level).await.map_err(e)
+async fn song(s: State<'_, Ctx>, id: String, source: String) -> R<Track> {
+    pick(&s, &source)?.track(&id).await.map_err(e)
 }
 
 #[tauri::command]
-async fn lyric(s: State<'_, Ctx>, id: u64) -> R<Lyric> {
-    s.api.lyric(id).await.map_err(e)
+async fn song_url(s: State<'_, Ctx>, id: String, level: String, source: String) -> R<SongUrl> {
+    pick(&s, &source)?.song_url(&id, &level).await.map_err(e)
 }
 
 #[tauri::command]
-async fn playlist(s: State<'_, Ctx>, id: u64) -> R<Collection> {
-    s.api.playlist(id).await.map_err(e)
+async fn lyric(s: State<'_, Ctx>, id: String, source: String) -> R<Lyric> {
+    pick(&s, &source)?.lyric(&id).await.map_err(e)
 }
 
 #[tauri::command]
-async fn album(s: State<'_, Ctx>, id: u64) -> R<Collection> {
-    s.api.album(id).await.map_err(e)
+async fn playlist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
+    pick(&s, &source)?.collection(CollectionKind::Playlist, &id).await.map_err(e)
+}
+
+#[tauri::command]
+async fn album(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
+    pick(&s, &source)?.collection(CollectionKind::Album, &id).await.map_err(e)
 }
 
 #[tauri::command]
@@ -226,7 +244,8 @@ pub fn run() {
             let store = CredentialStore::new(&data);
             let api = Netease::new();
             api.set_music_u(store.load());
-            let jobs = JobManager::new(std::sync::Arc::new(api.clone()), 3, None);
+            let sources = Sources::new(api.clone());
+            let jobs = JobManager::new(sources.clone(), 3, None);
 
             // 任务变化推送给界面，限制为每 200ms 最多一次
             let mut rx = jobs.subscribe();
@@ -240,7 +259,7 @@ pub fn run() {
                 }
             });
 
-            app.manage(Ctx { api, store, jobs });
+            app.manage(Ctx { api, sources, store, jobs });
             desktop::setup(app)?;
 
             // 页面就绪后再显示窗口，避免白屏闪烁
@@ -254,6 +273,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             home,
+            sources,
             resolve,
             search,
             song,

@@ -9,12 +9,16 @@ pub struct Artist {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
-    pub id: u64,
+    /// 平台内的歌曲 ID（数字或字符串 MID）
+    pub id: String,
+    /// 来源音源，例如 "netease"、"qq"、"kuwo"
+    #[serde(default = "default_source")]
+    pub source: String,
     pub name: String,
     /// 别名或译名，例如 "Sunny Day"
     pub alias: Option<String>,
     pub artists: Vec<Artist>,
-    pub album_id: u64,
+    pub album_id: String,
     pub album: String,
     pub cover: String,
     pub duration: u64,
@@ -55,7 +59,9 @@ pub enum CollectionKind {
 #[serde(rename_all = "camelCase")]
 pub struct Collection {
     pub kind: CollectionKind,
-    pub id: u64,
+    pub id: String,
+    #[serde(default = "default_source")]
+    pub source: String,
     pub name: String,
     pub cover: String,
     /// 歌单创建者或专辑歌手
@@ -69,7 +75,7 @@ pub struct Collection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SongUrl {
-    pub id: u64,
+    pub id: String,
     pub url: String,
     pub level: String,
     pub size: u64,
@@ -116,12 +122,16 @@ pub enum QrState {
 
 /// 用户输入识别结果
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "type", content = "value", rename_all = "lowercase")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum Resolved {
-    Song(u64),
-    Playlist(u64),
-    Album(u64),
+    Song { source: String, id: String },
+    Playlist { source: String, id: String },
+    Album { source: String, id: String },
     Query(String),
+}
+
+pub fn default_source() -> String {
+    "netease".into()
 }
 
 pub const LEVELS: &[(&str, &str)] = &[

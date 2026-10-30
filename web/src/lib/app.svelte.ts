@@ -3,7 +3,7 @@ import { settings, downloadOptions } from './settings.svelte';
 import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
 import { artists } from './format';
-import type { Account, Collection, HomeFeed, JobSummary, Track } from './types';
+import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track } from './types';
 
 export type View =
   | { kind: 'home' }
@@ -22,6 +22,8 @@ class AppState {
   hasCredential = $state(false);
   jobs = $state<JobSummary[]>([]);
   feed = $state<HomeFeed | null>(null);
+  source = $state<string>(localStorage.getItem('shiyin.source') ?? 'netease');
+  sources = $state<SourceInfo[]>([]);
   /** 视图切换计数，用于触发进入动画 */
   viewKey = $state(0);
 
@@ -35,6 +37,7 @@ class AppState {
   async init() {
     if (isTauri) import('./desktop.svelte').then((m) => m.initDesktop());
     try {
+      api.sources().then((l) => (this.sources = l)).catch(() => {});
       api.home().then((f) => (this.feed = f)).catch(() => {});
       await this.refreshAccount();
       this.#startJobs();
@@ -71,6 +74,11 @@ class AppState {
       prev = new Map(jobs.map((j) => [j.id, j]));
       this.jobs = jobs.sort((a, b) => b.created - a.created);
     });
+  }
+
+  setSource(id: string) {
+    this.source = id;
+    localStorage.setItem('shiyin.source', id);
   }
 
   async refreshAccount() {
@@ -138,12 +146,12 @@ class AppState {
     const r = await this.#run(() => api.resolve(q));
     if (!r) return;
     if (r.type === 'query') return this.search(r.value);
-    if (r.type === 'song') return this.openSong(r.value, q);
-    return this.openCollection(r.type, r.value, q);
+    if (r.type === 'song') return this.openSong(r.id, q, r.source);
+    return this.openCollection(r.type, r.id, q, r.source);
   }
 
   async search(q: string) {
-    const tracks = await this.#run(() => api.search(q, settings.searchLimit));
+    const tracks = await this.#run(() => api.search(q, settings.searchLimit, 0, this.source));
     if (!tracks) return;
     remember({ q, title: q, kind: 'query' });
     this.#go({ kind: 'search', q, tracks, done: tracks.length < settings.searchLimit, offset: tracks.length });
@@ -154,7 +162,7 @@ class AppState {
     if (v.kind !== 'search' || v.done || this.loading) return;
     this.loading = true;
     try {
-      const more = await api.search(v.q, settings.searchLimit, v.offset);
+      const more = await api.search(v.q, settings.searchLimit, v.offset, this.source);
       v.offset += more.length;
       const ids = new Set(v.tracks.map((t) => t.id));
       v.tracks.push(...more.filter((t) => !ids.has(t.id)));
@@ -166,15 +174,15 @@ class AppState {
     }
   }
 
-  async openSong(id: number, q = String(id)) {
-    const track = await this.#run(() => api.song(id));
+  async openSong(id: string, q = String(id), source = 'netease') {
+    const track = await this.#run(() => api.song(id, source));
     if (!track) return;
     remember({ q, title: `${track.name} · ${artists(track)}`, kind: 'song', cover: track.cover });
     this.#go({ kind: 'song', track });
   }
 
-  async openCollection(kind: 'playlist' | 'album', id: number, q = `${kind}:${id}`) {
-    const data = await this.#run(() => (kind === 'playlist' ? api.playlist(id) : api.album(id)));
+  async openCollection(kind: 'playlist' | 'album', id: string, q = `${kind}:${id}`, source = 'netease') {
+    const data = await this.#run(() => (kind === 'playlist' ? api.playlist(id, source) : api.album(id, source)));
     if (!data) return;
     remember({ q, title: data.name, kind, cover: data.cover });
     this.#go({ kind: 'collection', data });

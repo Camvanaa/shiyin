@@ -2,7 +2,7 @@
 // 播放只在主窗口进行；子窗口只显示状态、发送控制指令。
 
 export interface BridgeState {
-  track: { id: number; name: string; artist: string; cover: string } | null;
+  track: { id: string; name: string; artist: string; cover: string } | null;
   playing: boolean;
   /** 秒。子窗口用 at + (now - sentAt) 推算当前进度 */
   at: number;

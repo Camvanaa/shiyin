@@ -78,14 +78,15 @@ pub(crate) fn parse_track_with(v: &Value, privilege: &Value) -> Track {
         .filter(|a| !a.is_empty())
         .map(str::to_owned);
     Track {
-        id: u(&v["id"]),
+        id: u(&v["id"]).to_string(),
+        source: "netease".into(),
         name: s(&v["name"]),
         alias,
         artists: v["ar"]
             .as_array()
             .map(|a| a.iter().map(|x| Artist { id: u(&x["id"]), name: s(&x["name"]) }).collect())
             .unwrap_or_default(),
-        album_id: u(&al["id"]),
+        album_id: u(&al["id"]).to_string(),
         album: s(&al["name"]),
         cover: s(&al["picUrl"]).replacen("http://", "https://", 1),
         duration: u(&v["dt"]),
@@ -244,7 +245,7 @@ impl Netease {
         let d = &v["data"][0];
         let url = d["url"].as_str().ok_or(Error::Unavailable)?;
         Ok(SongUrl {
-            id: u(&d["id"]),
+            id: u(&d["id"]).to_string(),
             url: url.replacen("http://", "https://", 1),
             level: s(&d["level"]),
             size: u(&d["size"]),
@@ -279,7 +280,8 @@ impl Netease {
         let tracks = self.song_details(&ids).await?;
         Ok(Collection {
             kind: CollectionKind::Playlist,
-            id: u(&p["id"]),
+            id: u(&p["id"]).to_string(),
+            source: "netease".into(),
             name: s(&p["name"]),
             cover: s(&p["coverImgUrl"]).replacen("http://", "https://", 1),
             owner: s(&p["creator"]["nickname"]),
@@ -313,7 +315,8 @@ impl Netease {
         }
         Ok(Collection {
             kind: CollectionKind::Album,
-            id: u(&a["id"]),
+            id: u(&a["id"]).to_string(),
+            source: "netease".into(),
             name: s(&a["name"]),
             cover,
             owner: a["artists"]
@@ -449,14 +452,15 @@ impl Netease {
                             let fee = sg["fee"].as_i64().unwrap_or(0);
                             let al = &sg["album"];
                             Some(Track {
-                                id: u(&sg["id"]),
+                                id: u(&sg["id"]).to_string(),
+                                source: "netease".into(),
                                 name: s(&sg["name"]),
                                 alias: sg["alias"][0].as_str().filter(|a| !a.is_empty()).map(str::to_owned),
                                 artists: sg["artists"]
                                     .as_array()
                                     .map(|ar| ar.iter().map(|y| Artist { id: u(&y["id"]), name: s(&y["name"]) }).collect())
                                     .unwrap_or_default(),
-                                album_id: u(&al["id"]),
+                                album_id: u(&al["id"]).to_string(),
                                 album: s(&al["name"]),
                                 cover: x["picUrl"]
                                     .as_str()

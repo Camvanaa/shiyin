@@ -104,7 +104,7 @@
 </div>
 
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
-  <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection('playlist', p.id)}>
+  <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection('playlist', String(p.id))}>
     <span class="art">
       {#if p.cover}<img use:fade src={img(p.cover, 200)} alt="" decoding="async" />{/if}
       <span class="play-badge" aria-hidden="true"><Icon name="play" /></span>

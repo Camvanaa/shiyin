@@ -4,11 +4,13 @@ export interface Artist {
 }
 
 export interface Track {
-  id: number;
+  id: string;
+  /** 来源音源：netease / qq / kuwo */
+  source: string;
   name: string;
   alias: string | null;
   artists: Artist[];
-  albumId: number;
+  albumId: string;
   album: string;
   cover: string;
   duration: number;
@@ -19,7 +21,8 @@ export interface Track {
 
 export interface Collection {
   kind: 'playlist' | 'album';
-  id: number;
+  id: string;
+  source: string;
   name: string;
   cover: string;
   owner: string;
@@ -30,7 +33,7 @@ export interface Collection {
 }
 
 export interface SongUrl {
-  id: number;
+  id: string;
   url: string;
   level: string;
   size: number;
@@ -61,10 +64,16 @@ export interface QrStart {
 export type QrState = 'waiting' | 'scanned' | 'expired' | 'success';
 
 export type Resolved =
-  | { type: 'song'; value: number }
-  | { type: 'playlist'; value: number }
-  | { type: 'album'; value: number }
+  | { type: 'song'; source: string; id: string }
+  | { type: 'playlist'; source: string; id: string }
+  | { type: 'album'; source: string; id: string }
   | { type: 'query'; value: string };
+
+export interface SourceInfo {
+  id: string;
+  label: string;
+  levels: string[];
+}
 
 export type JobStatus = 'waiting' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
 
