@@ -310,13 +310,17 @@
   @media (max-width: 640px) {
     .top {
       grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 8px;
+      gap: 6px;
+      padding: 0 8px;
     }
     .brand span {
       display: none;
     }
+    .top-right {
+      gap: 2px;
+    }
     .page {
-      padding: 8px 12px 32px;
+      padding: 6px 10px calc(24px + var(--sab));
     }
   }
 </style>

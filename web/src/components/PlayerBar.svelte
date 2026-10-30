@@ -110,7 +110,8 @@
 <style>
   .bar {
     position: relative;
-    height: var(--playbar);
+    height: calc(var(--playbar) + var(--sab));
+    padding-bottom: var(--sab);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;

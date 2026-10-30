@@ -3,7 +3,7 @@
   "productName": "拾音",
   "mainBinaryName": "shiyin",
   "version": "0.1.0",
-  "identifier": "app.shiyin.desktop",
+  "identifier": "app.shiyin.music",
   "build": {
     "frontendDist": "../web/dist",
     "devUrl": "http://localhost:5173",
@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: https://*.music.126.net https://*.126.net http://*.126.net; media-src https://*.126.net http://*.126.net https://*.music.163.com; connect-src ipc: http://ipc.localhost https://*.126.net; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; img-src 'self' data: https://*.music.126.net https://*.126.net http://*.126.net https://*.gtimg.cn https://*.qq.com https://*.kuwo.cn; media-src 'self' blob: https://*.126.net http://*.126.net https://*.music.163.com https://*.qq.com https://*.qqmusic.qq.com https://*.kuwo.cn; connect-src ipc: http://ipc.localhost https://*.126.net https://*.music.163.com https://*.qq.com https://*.kuwo.cn; style-src 'self' 'unsafe-inline'; script-src 'self'"
     }
   },
   "bundle": {

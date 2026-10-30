@@ -351,3 +351,25 @@ img.fade.ok {
     scroll-behavior: auto !important;
   }
 }
+
+/* 移动端安全区与触控手势优化 */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+body {
+  padding-top: var(--sat);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+
+/* 移动端禁用双击缩放与长按呼出菜单 */
+* {
+  -webkit-touch-callout: none;
+}
+input, textarea {
+  -webkit-touch-callout: default;
+}

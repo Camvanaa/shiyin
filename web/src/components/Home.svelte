@@ -442,11 +442,27 @@
     }
   }
   @media (max-width: 640px) {
+    .page-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding-bottom: 12px;
+    }
     .shelf {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 12px;
     }
     .songs {
       grid-template-columns: 1fr;
+    }
+    .tabs {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      text-align: center;
+    }
+    .tabs button {
+      padding: 0 4px;
     }
   }
 </style>

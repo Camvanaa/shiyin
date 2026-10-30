@@ -1,3 +1,6 @@
+#[cfg(desktop)]
+use desktop::{set_desktop_prefs, set_lyrics_locked, set_lyrics_window, set_mini_window};
+#[cfg(desktop)]
 mod desktop;
 
 use std::path::PathBuf;
@@ -250,18 +253,25 @@ fn reveal(s: State<'_, Ctx>, id: u64) -> R<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            desktop::show_main(app);
-        }))
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_denylist(&["lyrics", "mini"])
-                .build(),
-        )
-        .plugin(desktop::plugin_global_shortcut())
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+                desktop::show_main(app);
+            }))
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_denylist(&["lyrics", "mini"])
+                    .build(),
+            )
+            .plugin(desktop::plugin_global_shortcut());
+    }
+
+    builder
         .setup(|app| {
             let data = app.path().app_data_dir()?;
             let store = CredentialStore::new(&data);
@@ -289,6 +299,7 @@ pub fn run() {
             });
 
             app.manage(Ctx { api, sources, store, jobs });
+            #[cfg(desktop)]
             desktop::setup(app)?;
 
             // 页面就绪后再显示窗口，避免白屏闪烁
@@ -327,10 +338,10 @@ pub fn run() {
             set_concurrency,
             default_dir_cmd,
             reveal,
-            desktop::set_lyrics_window,
-            desktop::set_lyrics_locked,
-            desktop::set_mini_window,
-            desktop::set_desktop_prefs
+            set_lyrics_window,
+            set_lyrics_locked,
+            set_mini_window,
+            set_desktop_prefs
         ])
         .run(tauri::generate_context!())
         .expect("启动拾音失败");
