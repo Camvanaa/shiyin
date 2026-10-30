@@ -251,6 +251,20 @@ fn reveal(s: State<'_, Ctx>, id: u64) -> R<()> {
     }
 }
 
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn set_lyrics_window(_app: tauri::AppHandle, _on: bool) -> Result<(), String> { Ok(()) }
+#[cfg(not(desktop))]
+#[tauri::command]
+fn set_lyrics_locked(_app: tauri::AppHandle, _locked: bool) -> Result<(), String> { Ok(()) }
+#[cfg(not(desktop))]
+#[tauri::command]
+fn set_mini_window(_app: tauri::AppHandle, _on: bool) -> Result<(), String> { Ok(()) }
+#[cfg(not(desktop))]
+#[tauri::command]
+fn set_desktop_prefs(_app: tauri::AppHandle, _prefs: serde_json::Value) -> Result<(), String> { Ok(()) }
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
