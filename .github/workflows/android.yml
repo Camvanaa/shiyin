@@ -41,7 +41,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android,x86_64-linux-android
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -58,15 +58,53 @@ jobs:
         run: |
           tauri android init --ci --skip-targets-install
 
-      - name: 构建 Android APK (arm64-v8a)
+      - name: 构建 Android APK (同时支持手机 aarch64 与模拟器 x86_64)
         working-directory: src-tauri
         run: |
-          tauri android build --apk --target aarch64
+          tauri android build --apk --target aarch64 --target x86_64
 
-      - name: 收集 APK 文件
+      - name: 生成自签名密钥并对 APK 签名
         run: |
+          # 1. 生成用于 APK 签名的自签名证书 (有效期 25 年)
+          keytool -genkeypair -v \
+            -keystore release.jks \
+            -alias shiyin \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass shiyin2026 \
+            -keypass shiyin2026 \
+            -dname "CN=Shiyin, OU=Shiyin, O=Shiyin, L=Beijing, ST=Beijing, C=CN"
+
+          # 2. 定位 Android SDK build-tools 中的 apksigner
+          BUILD_TOOLS="${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools/ | sort -V | tail -n 1)"
+          echo "Using build-tools: $BUILD_TOOLS"
+
+          # 3. 对构建出的 APK 进行签名
           mkdir -p output-apk
-          find src-tauri/gen/android -name "*.apk" -exec cp {} output-apk/ \;
+          for apk in $(find src-tauri/gen/android -name "*.apk"); do
+            echo "Found APK: $apk"
+            fname=$(basename "$apk")
+            outname="shiyin-${fname//-unsigned/}"
+            outpath="output-apk/$outname"
+
+            "$BUILD_TOOLS/apksigner" sign \
+              --ks release.jks \
+              --ks-key-alias shiyin \
+              --ks-pass pass:shiyin2026 \
+              --key-pass pass:shiyin2026 \
+              --out "$outpath" \
+              "$apk"
+
+            echo "Verifying signature for $outpath..."
+            "$BUILD_TOOLS/apksigner" verify -v "$outpath"
+          done
+
+          # 4. 创建一个简明主安装包 shiyin-universal.apk 方便直接下载安装
+          univ_apk=$(find output-apk/ -name "*universal*.apk" | head -n 1)
+          if [ -n "$univ_apk" ]; then
+            cp "$univ_apk" output-apk/shiyin-universal-install.apk
+          fi
           ls -lh output-apk/
 
       - uses: actions/upload-artifact@v4
