@@ -213,7 +213,7 @@ class Player {
 
   async #tryFallback(t: Track) {
     try {
-      const m = await api.matchPlayable(t.name, artists(t), t.source, settings.playLevel);
+      const m = await api.matchPlayable(t.name, artists(t), t.source, settings.playLevel, t.duration);
       const v = { url: m.url.url, level: m.url.level, trial: false, from: m.track.source, exp: Date.now() + 15 * 60_000 };
       this.#urlCache.set(this.#cacheKey(t), v);
       return v;

@@ -57,7 +57,7 @@
     candidates = null;
     loadingCand = true;
     api
-      .matchCandidates(t.name, artists(t), t.source, settings.playLevel)
+      .matchCandidates(t.name, artists(t), t.source, settings.playLevel, t.duration)
       .then((l) => (candidates = l))
       .catch(() => (candidates = []))
       .finally(() => (loadingCand = false));

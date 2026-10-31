@@ -179,12 +179,21 @@ impl Sources {
 
     /// 在其它音源中按"歌名 + 歌手"寻找可播放的替代曲目（同音源失败时的换源兜底）。
     /// 各音源并发查找，取第一个成功的结果。
-    pub async fn find_playable(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Option<(Track, SongUrl)> {
-        self.find_candidates(name, artist, skip_source, level).await.into_iter().next()
+    pub async fn find_playable(&self, name: &str, artist: &str, duration_ms: u64, skip_source: &str, level: &str) -> Option<(Track, SongUrl)> {
+        // 自动换源只接受时长相近且歌名匹配的版本，避免悄悄换成 Live / 翻唱
+        self.find_candidates_for(name, artist, duration_ms, skip_source, level)
+            .await
+            .into_iter()
+            .find(|(t, _)| duration_ms == 0 || t.duration == 0 || t.duration.abs_diff(duration_ms) as f64 / duration_ms as f64 <= 0.12)
     }
 
     /// 在其它音源中列出所有可完整播放的同名版本，按匹配度排序（供用户手动换源）。
     pub async fn find_candidates(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Vec<(Track, SongUrl)> {
+        self.find_candidates_for(name, artist, 0, skip_source, level).await
+    }
+
+    /// 同上，可传入原曲时长（毫秒）用于过滤 Live / 混剪 / 片段等时长差异过大的版本；0 表示不过滤。
+    pub async fn find_candidates_for(&self, name: &str, artist: &str, duration_ms: u64, skip_source: &str, level: &str) -> Vec<(Track, SongUrl)> {
         let q = format!("{name} {artist}").trim().to_owned();
         let name_lc = name.trim().to_lowercase();
         let artist_lc = artist.trim().to_lowercase();
@@ -200,8 +209,15 @@ impl Sources {
                     .map(|t| {
                         let n = t.name.trim().to_lowercase();
                         let a = t.artist_names().to_lowercase();
-                        // 0 = 歌名歌手都匹配；1 = 仅歌名；2 = 其它
-                        let score = if n == name_lc && (artist_lc.is_empty() || a.contains(&artist_lc)) { 0 } else if n == name_lc { 1 } else { 2 };
+                        // 0 = 歌名歌手都匹配；1 = 仅歌名；2 = 其它。
+                        // 时长相差超过 12% 视为不同版本（Live / 混剪 / 翻唱），降权到最后。
+                        let mut score = if n == name_lc && (artist_lc.is_empty() || a.contains(&artist_lc)) { 0 } else if n == name_lc { 1 } else { 2 };
+                        if duration_ms > 0 && t.duration > 0 {
+                            let diff = t.duration.abs_diff(duration_ms) as f64 / duration_ms as f64;
+                            if diff > 0.12 {
+                                score += 3;
+                            }
+                        }
                         (score, t)
                     })
                     .collect();

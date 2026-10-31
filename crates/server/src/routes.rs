@@ -244,11 +244,14 @@ struct MatchQ {
     skip: String,
     #[serde(default = "default_level")]
     level: String,
+    /// 原曲时长（毫秒），用于过滤时长差异过大的版本
+    #[serde(default)]
+    duration: u64,
 }
 fn default_level() -> String { "exhigh".into() }
 
 async fn match_playable(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> R<Value> {
-    let Some((track, url)) = c.app.sources.find_playable(&q.name, &q.artist, &q.skip, &q.level).await else {
+    let Some((track, url)) = c.app.sources.find_playable(&q.name, &q.artist, q.duration, &q.skip, &q.level).await else {
         return Err(ApiError(StatusCode::NOT_FOUND, "其它音源也未找到可播放版本".into()));
     };
     Ok(Json(json!({ "track": track, "url": url })))
@@ -258,7 +261,7 @@ async fn match_candidates(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> Json
     let list: Vec<Value> = c
         .app
         .sources
-        .find_candidates(&q.name, &q.artist, &q.skip, &q.level)
+        .find_candidates_for(&q.name, &q.artist, q.duration, &q.skip, &q.level)
         .await
         .into_iter()
         .map(|(track, url)| json!({ "track": track, "url": url }))

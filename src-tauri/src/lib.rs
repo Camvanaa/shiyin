@@ -88,19 +88,19 @@ async fn toplist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection>
 }
 
 #[tauri::command]
-async fn match_playable(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String) -> R<Value> {
+async fn match_playable(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String, duration: Option<u64>) -> R<Value> {
     let (track, url) = s
         .sources
-        .find_playable(&name, &artist, &skip, &level)
+        .find_playable(&name, &artist, duration.unwrap_or(0), &skip, &level)
         .await
         .ok_or_else(|| "其它音源也未找到可播放版本".to_owned())?;
     Ok(json!({ "track": track, "url": url }))
 }
 
 #[tauri::command]
-async fn match_candidates(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String) -> R<Vec<Value>> {
+async fn match_candidates(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String, duration: Option<u64>) -> R<Vec<Value>> {
     Ok(s.sources
-        .find_candidates(&name, &artist, &skip, &level)
+        .find_candidates_for(&name, &artist, duration.unwrap_or(0), &skip, &level)
         .await
         .into_iter()
         .map(|(track, url)| json!({ "track": track, "url": url }))
