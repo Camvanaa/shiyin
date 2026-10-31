@@ -178,31 +178,46 @@ impl Sources {
     /// 在其它音源中按"歌名 + 歌手"寻找可播放的替代曲目（同音源失败时的换源兜底）。
     /// 各音源并发查找，取第一个成功的结果。
     pub async fn find_playable(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Option<(Track, SongUrl)> {
+        self.find_candidates(name, artist, skip_source, level).await.into_iter().next()
+    }
+
+    /// 在其它音源中列出所有可完整播放的同名版本，按匹配度排序（供用户手动换源）。
+    pub async fn find_candidates(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Vec<(Track, SongUrl)> {
         let q = format!("{name} {artist}").trim().to_owned();
         let name_lc = name.trim().to_lowercase();
+        let artist_lc = artist.trim().to_lowercase();
         let tasks = self.list.iter().filter(|s| s.id() != skip_source).map(|s| {
             let q = q.clone();
             let name_lc = name_lc.clone();
+            let artist_lc = artist_lc.clone();
             async move {
-                let candidates = tokio::time::timeout(AGGREGATE_TIMEOUT, s.search(&q, 5, 0)).await.ok()?.ok()?;
-                // 优先歌名完全匹配的候选，避免换到翻唱或同名不同曲
-                let mut ranked: Vec<Track> = candidates
+                let candidates = tokio::time::timeout(AGGREGATE_TIMEOUT, s.search(&q, 6, 0)).await.ok()?.ok()?;
+                let mut ranked: Vec<(u8, Track)> = candidates
                     .into_iter()
                     .filter(|t| t.availability != crate::model::Availability::None)
+                    .map(|t| {
+                        let n = t.name.trim().to_lowercase();
+                        let a = t.artist_names().to_lowercase();
+                        // 0 = 歌名歌手都匹配；1 = 仅歌名；2 = 其它
+                        let score = if n == name_lc && (artist_lc.is_empty() || a.contains(&artist_lc)) { 0 } else if n == name_lc { 1 } else { 2 };
+                        (score, t)
+                    })
                     .collect();
-                ranked.sort_by_key(|t| if t.name.trim().to_lowercase() == name_lc { 0 } else { 1 });
-                for t in ranked {
-                    if let Ok(u) = tokio::time::timeout(AGGREGATE_TIMEOUT, s.song_url(&t.id, level)).await.ok()? {
+                ranked.sort_by_key(|(s, _)| *s);
+                // 每个音源最多校验前 3 个，拿到第一个可完整播放的即返回
+                for (score, t) in ranked.into_iter().take(3) {
+                    if let Ok(Ok(u)) = tokio::time::timeout(AGGREGATE_TIMEOUT, s.song_url(&t.id, level)).await {
                         if u.trial.is_none() {
-                            return Some((t, u));
+                            return Some((score, t, u));
                         }
                     }
                 }
                 None
             }
         });
-        let results = futures_util::future::join_all(tasks).await;
-        results.into_iter().flatten().next()
+        let mut found: Vec<(u8, Track, SongUrl)> = futures_util::future::join_all(tasks).await.into_iter().flatten().collect();
+        found.sort_by_key(|(s, _, _)| *s);
+        found.into_iter().map(|(_, t, u)| (t, u)).collect()
     }
 }
 

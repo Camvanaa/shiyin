@@ -7,7 +7,32 @@
   const ratio = $derived(player.duration > 0 ? Math.min(1, Math.max(0, player.time / player.duration)) : 0);
 
   function open() {
+    if (Math.abs(dx) > 8) return; // 刚滑动完不触发展开
     player.expanded = true;
+  }
+
+  // 左右滑切歌：位移跟手，松手超过阈值切换
+  let dx = $state(0);
+  let sx = 0;
+  let sy = 0;
+  let swiping = false;
+  function ts(e: TouchEvent) {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    swiping = false;
+  }
+  function tm(e: TouchEvent) {
+    const x = e.touches[0].clientX - sx;
+    const y = e.touches[0].clientY - sy;
+    if (!swiping && Math.abs(x) > 10 && Math.abs(x) > Math.abs(y) * 1.4) swiping = true;
+    if (swiping) dx = Math.max(-120, Math.min(120, x));
+  }
+  function te() {
+    if (dx < -64) player.next();
+    else if (dx > 64) player.prev();
+    const was = dx;
+    dx = 0;
+    if (Math.abs(was) > 8) setTimeout(() => (dx = 0), 0);
   }
   function stop(fn: () => void) {
     return (e: MouseEvent) => {
@@ -19,7 +44,20 @@
 
 {#if t && !player.expanded}
   <div class="pill-wrap">
-    <div class="pill" role="button" tabindex="0" onclick={open} onkeydown={(e) => e.key === 'Enter' && open()} aria-label="打开播放器：{t.name}">
+    <div
+      class="pill"
+      class:swiping={dx !== 0}
+      style:transform={dx ? `translateX(${dx * 0.35}px)` : ''}
+      role="button"
+      tabindex="0"
+      onclick={open}
+      onkeydown={(e) => e.key === 'Enter' && open()}
+      ontouchstart={ts}
+      ontouchmove={tm}
+      ontouchend={te}
+      ontouchcancel={te}
+      aria-label="打开播放器：{t.name}"
+    >
       <div class="art">
         {#key t.id}
           <img src={img(t.cover, 56)} alt="" width="44" height="44" decoding="async" />
@@ -77,8 +115,11 @@
     outline: none;
     transition: transform var(--t-fast) var(--ease);
   }
-  .pill:active {
+  .pill:active:not(.swiping) {
     transform: scale(0.985);
+  }
+  .pill.swiping {
+    transition: none;
   }
   .art {
     width: 44px;

@@ -4,10 +4,12 @@
   import { app, SOURCE_TABS } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
   import { history, clearHistory } from '../lib/history.svelte';
+  import { recent } from '../lib/recent.svelte';
   import { artists, collectionKindLabel, img, sourceShort } from '../lib/format';
   import type { PlaylistBrief, Track } from '../lib/types';
 
-  const recent = $derived(history.items.filter((h) => h.kind !== 'query').slice(0, 6));
+  const opened = $derived(history.items.filter((h) => h.kind !== 'query').slice(0, 6));
+  const played = $derived(recent.items.slice(0, 6));
   const currentKey = $derived(player.current ? `${player.current.source}:${player.current.id}` : '');
   /** 加载完成后的内容；加载中为 null，模板据此渲染骨架 */
   const feed = $derived(app.homeLoading ? null : app.feed);
@@ -30,14 +32,28 @@
     </div>
   </header>
 
-  {#if recent.length}
+  {#if played.length}
+    <section>
+      <div class="sec-head">
+        <h2>最近播放</h2>
+        <button class="btn plain" onclick={() => player.playList(played, 0)}>播放全部</button>
+      </div>
+      <div class="songs">
+        {#each played as t, i (`${t.source}:${t.id}`)}
+          {@render songCell(t, i, played)}
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  {#if opened.length}
     <section>
       <div class="sec-head">
         <h2>最近打开</h2>
         <button class="btn plain" onclick={clearHistory}>清除</button>
       </div>
       <div class="shelf">
-        {#each recent as h, i (h.at)}
+        {#each opened as h, i (h.at)}
           <button class="card" style:--d="{i * 24}ms" onclick={() => app.submit(h.q)}>
             <span class="art">
               {#if h.cover}<img use:fade src={img(h.cover, 200)} alt="" decoding="async" />{/if}
@@ -83,7 +99,7 @@
         </div>
         <div class="songs">
           {#each feed.newSongs.slice(0, 9) as t, i (`${t.source}:${t.id}`)}
-            {@render songCell(t, i)}
+            {@render songCell(t, i, feed.newSongs)}
           {/each}
         </div>
       </section>
@@ -113,10 +129,10 @@
   </button>
 {/snippet}
 
-{#snippet songCell(t: Track, i: number)}
+{#snippet songCell(t: Track, i: number, list: Track[] = [])}
   {@const active = `${t.source}:${t.id}` === currentKey}
   <div class="song" class:active class:off={t.availability === 'none'}>
-    <button class="s-main" onclick={() => playNew(i)}>
+    <button class="s-main" onclick={() => (list.length ? player.playList(list, i) : playNew(i))}>
       <span class="s-art">
         <img use:fade src={img(t.cover, 56)} alt="" decoding="async" width="48" height="48" />
         <span class="s-over"><Icon name={active && player.playing ? 'pause' : 'play'} /></span>

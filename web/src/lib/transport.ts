@@ -1,6 +1,7 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
-  Account, Collection, HomeFeed, JobDetail, JobSummary, Lyric, NewJob, QrStart, QrState, Resolved, SongUrl, SourceInfo, Track,
+  Account, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
+  SongUrl, SourceInfo, Track,
 } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -17,6 +18,7 @@ export interface Api {
   album(id: string, source?: string): Promise<Collection>;
   toplist(id: string, source?: string): Promise<Collection>;
   matchPlayable(name: string, artist: string, skip: string, level: string): Promise<{ track: Track; url: SongUrl }>;
+  matchCandidates(name: string, artist: string, skip: string, level: string): Promise<MatchCandidate[]>;
   setSourceCookie(source: string, cookie: string | null): Promise<{ hasCookie: boolean }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
   setCookie(musicU: string): Promise<{ account: Account }>;
@@ -80,6 +82,7 @@ const httpApi: Api = {
   album: (id, source = '') => http('GET', `/album/${enc(id)}?source=${enc(source)}`),
   toplist: (id, source = '') => http('GET', `/toplist/${enc(id)}?source=${enc(source)}`),
   matchPlayable: (name, artist, skip, level) => http('GET', `/match?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}`),
+  matchCandidates: (name, artist, skip, level) => http('GET', `/match/all?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}`),
   setSourceCookie: (source, cookie) => cookie ? http('POST', `/sources/${enc(source)}/cookie`, { cookie }) : http('DELETE', `/sources/${enc(source)}/cookie`),
   account: () => http('GET', '/account'),
   setCookie: (musicU) => http('POST', '/account/cookie', { musicU }),
@@ -149,6 +152,7 @@ async function tauriApi(): Promise<Api> {
     album: (id, source = '') => call('album', { id, source }),
     toplist: (id, source = '') => call('toplist', { id, source }),
     matchPlayable: (name, artist, skip, level) => call('match_playable', { name, artist, skip, level }),
+    matchCandidates: (name, artist, skip, level) => call('match_candidates', { name, artist, skip, level }),
     setSourceCookie: (source, cookie) => call('set_source_cookie', { source, cookie }),
     account: () => call('account'),
     setCookie: (musicU) => call('set_cookie', { musicU }),

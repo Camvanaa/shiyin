@@ -38,7 +38,11 @@
             </span>
             <span class="dur tabular">{duration(t.duration)}</span>
           </button>
-          <button class="icon-btn rm" onclick={() => player.remove(i)} aria-label="移除"><Icon name="close" /></button>
+          <div class="ops">
+            <button class="icon-btn mv" disabled={i === 0} onclick={() => player.move(i, i - 1)} aria-label="上移"><Icon name="chevronDown" /></button>
+            <button class="icon-btn mv dn" disabled={i === player.queue.length - 1} onclick={() => player.move(i, i + 1)} aria-label="下移"><Icon name="chevronDown" /></button>
+            <button class="icon-btn rm" onclick={() => player.remove(i)} aria-label="移除"><Icon name="close" /></button>
+          </div>
         </div>
       {/each}
     </div>
@@ -104,25 +108,45 @@
     font-size: 12px;
     color: var(--fg-3);
   }
-  .rm {
-    opacity: 0;
+  .ops {
+    display: flex;
+    gap: 0;
     margin-right: 4px;
+    opacity: 0;
+    transition: opacity var(--t-fast) var(--ease);
   }
-  .row:hover .rm {
+  .row:hover .ops,
+  .row:focus-within .ops {
     opacity: 1;
   }
-  .rm :global(svg) {
+  .ops .icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+  .ops .icon-btn:disabled {
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  .ops :global(svg) {
     width: 14px;
     height: 14px;
+  }
+  .mv :global(svg) {
+    transform: rotate(180deg);
+  }
+  .mv.dn :global(svg) {
+    transform: none;
   }
   @media (max-width: 640px) {
     .main {
       height: 58px;
     }
-    .rm {
+    .ops {
       opacity: 1;
-      width: 40px;
-      height: 40px;
+    }
+    .ops .icon-btn {
+      width: 38px;
+      height: 38px;
     }
     .name {
       font-size: 15px;

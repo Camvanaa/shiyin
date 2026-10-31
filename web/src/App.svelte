@@ -92,6 +92,16 @@
 
     <div class="top-right">
       <div class="desktop-only">
+        <button
+          class="icon-btn"
+          class:on={app.sheet === 'queue'}
+          disabled={!player.queue.length}
+          onclick={() => (app.sheet = app.sheet === 'queue' ? null : 'queue')}
+          aria-label="播放列表"
+          title={player.queue.length ? `播放列表 · ${player.queue.length} 首` : '播放列表为空'}
+        >
+          <Icon name="queue" />
+        </button>
         <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
           <Icon name="download" />
           {#if app.activeJobs}<span class="count tabular">{app.activeJobs}</span>{/if}
@@ -247,6 +257,10 @@
   .top-right .desktop-only {
     display: flex;
     gap: 4px;
+  }
+  .top-right .icon-btn:disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
   .dl {
     position: relative;

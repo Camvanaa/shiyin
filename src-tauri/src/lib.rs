@@ -98,6 +98,16 @@ async fn match_playable(s: State<'_, Ctx>, name: String, artist: String, skip: S
 }
 
 #[tauri::command]
+async fn match_candidates(s: State<'_, Ctx>, name: String, artist: String, skip: String, level: String) -> R<Vec<Value>> {
+    Ok(s.sources
+        .find_candidates(&name, &artist, &skip, &level)
+        .await
+        .into_iter()
+        .map(|(track, url)| json!({ "track": track, "url": url }))
+        .collect())
+}
+
+#[tauri::command]
 fn set_source_cookie(s: State<'_, Ctx>, source: String, cookie: Option<String>) -> R<Value> {
     let src = pick(&s, &source)?;
     src.set_cookie(cookie.clone());
@@ -331,6 +341,7 @@ pub fn run() {
             album,
             toplist,
             match_playable,
+            match_candidates,
             set_source_cookie,
             account,
             set_cookie,

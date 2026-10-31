@@ -89,6 +89,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/album/{id}", get(album))
         .route("/toplist/{id}", get(toplist))
         .route("/match", get(match_playable))
+        .route("/match/all", get(match_candidates))
         .route("/account", get(account).delete(logout))
         .route("/account/cookie", post(set_cookie))
         .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
@@ -251,6 +252,18 @@ async fn match_playable(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> R<Valu
         return Err(ApiError(StatusCode::NOT_FOUND, "其它音源也未找到可播放版本".into()));
     };
     Ok(Json(json!({ "track": track, "url": url })))
+}
+
+async fn match_candidates(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> Json<Value> {
+    let list: Vec<Value> = c
+        .app
+        .sources
+        .find_candidates(&q.name, &q.artist, &q.skip, &q.level)
+        .await
+        .into_iter()
+        .map(|(track, url)| json!({ "track": track, "url": url }))
+        .collect();
+    Json(json!(list))
 }
 
 #[derive(Deserialize)]

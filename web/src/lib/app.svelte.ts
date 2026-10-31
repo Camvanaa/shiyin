@@ -2,6 +2,7 @@ import { api, AuthError, isTauri } from './transport';
 import { settings, downloadOptions } from './settings.svelte';
 import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
+import { player } from './player.svelte';
 import { artists } from './format';
 import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track } from './types';
 
@@ -49,6 +50,7 @@ class AppState {
     try {
       api.sources().then((l) => (this.sources = l)).catch(() => {});
       this.loadHome();
+      player.restore().catch(() => {});
       await this.refreshAccount();
       this.#startJobs();
       api.setConcurrency(settings.concurrency).catch(() => {});

@@ -5,6 +5,8 @@ import { toast } from './toast.svelte';
 import { artists, img } from './format';
 import type { Track } from './types';
 import { extractTint } from './tint';
+import { recordPlay } from './recent.svelte';
+import type { MatchCandidate } from './types';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -28,6 +30,10 @@ class Player {
   tint = $state('');
   /** 当前只能播放试听片段 */
   trial = $state(false);
+  /** 换源候选中 */
+  matching = $state(false);
+  /** 已完成恢复标记，供界面判断是否还要恢复播放位置 */
+  restored = $state(false);
 
   current = $derived(this.index >= 0 ? (this.queue[this.index] ?? null) : null);
 
@@ -42,6 +48,7 @@ class Player {
     a.addEventListener('play', () => {
       this.playing = true;
       this.#startTicker();
+      if (this.current) recordPlay(this.current);
     });
     a.addEventListener('pause', () => {
       this.playing = false;
@@ -73,8 +80,67 @@ class Player {
     this.#bindMediaSession();
   }
 
+  #persist() {
+    try {
+      const t = this.current;
+      localStorage.setItem(
+        'shiyin.session',
+        JSON.stringify({
+          queue: this.queue,
+          index: this.index,
+          time: this.#audio.currentTime || this.time,
+          repeat: this.repeat,
+          shuffle: this.shuffle,
+        }),
+      );
+      void t;
+    } catch {
+      /* 隐私模式等场景下配额不足，忽略 */
+    }
+  }
+
+  /** 刷新后恢复上次的队列与进度（暂停态，不自动播放） */
+  async restore() {
+    type Saved = { queue: Track[]; index: number; time: number; repeat?: RepeatMode; shuffle?: boolean };
+    let saved: Saved | null = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('shiyin.session') ?? 'null');
+    } catch {
+      saved = null;
+    }
+    if (!saved?.queue?.length || saved.index == null || saved.index < 0 || saved.index >= saved.queue.length) {
+      this.restored = true;
+      return;
+    }
+    this.queue = saved.queue;
+    this.index = saved.index;
+    if (saved.repeat) this.repeat = saved.repeat;
+    if (typeof saved.shuffle === 'boolean') this.shuffle = saved.shuffle;
+    const t = this.current!;
+    this.duration = t.duration / 1000;
+    this.time = this.frameTime = Math.min(saved.time || 0, this.duration || 0);
+    this.#updateMetadata();
+    extractTint(t.cover).then((c) => (this.tint = c));
+    api.lyric(t.id, t.source).then((l) => (this.lyric = parseLyric(l.lrc, l.tlrc))).catch(() => {});
+    try {
+      const u = await this.#resolveUrl(t);
+      this.quality = u.level;
+      this.trial = u.trial;
+      this.matchedFrom = u.from !== t.source ? u.from : '';
+      this.#srcAt = Date.now();
+      this.#audio.src = u.url;
+      this.#audio.addEventListener('loadedmetadata', () => {
+        if (this.#audio.duration > 0 && this.time < this.#audio.duration) this.#audio.currentTime = this.time;
+      }, { once: true });
+    } catch {
+      /* 恢复失败就保持暂停，用户点播放时会重新解析 */
+    }
+    this.restored = true;
+  }
+
   #raf = 0;
   #lastTimeWrite = 0;
+  #lastPersist = 0;
   #startTicker() {
     if (this.#raf) return;
     const tick = (now: number) => {
@@ -89,6 +155,10 @@ class Player {
         if (now - this.#lastTimeWrite >= 100) {
           this.#lastTimeWrite = now;
           this.time = cur;
+        }
+        if (now - this.#lastPersist >= 5000) {
+          this.#lastPersist = now;
+          this.#persist();
         }
       }
       this.#raf = requestAnimationFrame(tick);
@@ -258,6 +328,7 @@ class Player {
     }
     this.index = i;
     this.#load();
+    this.#persist();
   }
 
   /** 播放单曲：已在队列中则跳转，否则插入到当前曲目之后 */
@@ -281,6 +352,7 @@ class Player {
     if (i < 0 || i >= this.queue.length) return;
     this.index = i;
     this.#load();
+    this.#persist();
   }
 
   enqueue(tracks: Track[]) {
@@ -325,6 +397,50 @@ class Player {
     this.stop();
   }
 
+  /** 队列内移动（拖拽排序 / 上下移动） */
+  move(from: number, to: number) {
+    const len = this.queue.length;
+    if (from === to || from < 0 || from >= len || to < 0 || to >= len) return;
+    const next = this.queue.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    this.queue = next;
+    if (this.index === from) this.index = to;
+    else if (from < this.index && to >= this.index) this.index--;
+    else if (from > this.index && to <= this.index) this.index++;
+    this.#persist();
+  }
+
+  /** 手动换源：用其它平台的同名版本替换当前曲目并立即播放 */
+  async switchSource(c: MatchCandidate) {
+    const i = this.index;
+    if (i < 0) return;
+    const original = this.queue[i];
+    this.#urlCache.set(this.#cacheKey(c.track), {
+      url: c.url.url,
+      level: c.url.level,
+      trial: false,
+      from: c.track.source,
+      exp: Date.now() + 15 * 60_000,
+    });
+    const resume = this.#audio.currentTime;
+    const wasPlaying = !this.#audio.paused;
+    this.queue = this.queue.map((t, k) => (k === i ? c.track : t));
+    this.matchedFrom = c.track.source !== original.source ? original.source : '';
+    await this.#load(true);
+    if (resume > 0) this.seek(resume);
+    if (!wasPlaying) this.#audio.pause();
+    this.#persist();
+  }
+
+  /** 重新解析当前曲目（音质切换、换源失败重试） */
+  async retryCurrent() {
+    const t = this.current;
+    if (!t) return;
+    this.#urlCache.delete(this.#cacheKey(t));
+    await this.#load(true);
+  }
+
   stop() {
     this.#token++;
     this.#audio.pause();
@@ -335,11 +451,20 @@ class Player {
     this.duration = 0;
     this.lyric = [];
     this.expanded = false;
+    try {
+      localStorage.removeItem('shiyin.session');
+    } catch {
+      /* 忽略 */
+    }
   }
 
   toggle() {
     if (!this.current) return;
-    if (!this.#audio.src) return void this.#load();
+    if (!this.#audio.src) {
+      // 恢复会话时地址解析失败：从记忆的位置继续
+      if (this.time > 0) this.#pendingSeek = this.time;
+      return void this.#load(true);
+    }
     if (this.#audio.paused) {
       // 暂停太久后地址可能已过期，先刷新再从原位置继续
       if (this.#stale()) return void this.#refresh();

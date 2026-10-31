@@ -114,6 +114,12 @@ export interface JobDetail {
   dir: string;
 }
 
+/** 换源候选：其它音源上可完整播放的同名版本 */
+export interface MatchCandidate {
+  track: Track;
+  url: SongUrl;
+}
+
 export interface DownloadOptions {
   level: string;
   template: string;

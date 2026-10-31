@@ -2,8 +2,8 @@
   import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
   import Slider from './Slider.svelte';
+  import PlayerPanel from './PlayerPanel.svelte';
   import { player } from '../lib/player.svelte';
-  import { app } from '../lib/app.svelte';
   import { artists, duration, img, sourceName } from '../lib/format';
   import { lineAt } from '../lib/lrc';
   import { LEVELS } from '../lib/types';
@@ -16,6 +16,13 @@
   let scrub = $state<number | null>(null);
   /** 移动端：封面 / 歌词 二选一 */
   let mobileLyrics = $state(false);
+  /** 内置面板：队列 / 音源 */
+  let panel = $state(false);
+  let panelTab = $state<'queue' | 'source'>('queue');
+  function openPanel(tab: 'queue' | 'source') {
+    panelTab = tab;
+    panel = true;
+  }
 
   // 歌词行提前 0.15s 切换，视觉上更跟手。用 frameTime 保证逐帧精度。
   $effect(() => {
@@ -59,9 +66,12 @@
   function close() {
     player.expanded = false;
     mobileLyrics = false;
+    panel = false;
   }
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape' && player.expanded) close();
+    if (e.key !== 'Escape' || !player.expanded) return;
+    if (panel) panel = false;
+    else close();
   }
 
   // 下滑关闭手势（仅在非歌词滚动区域触发）
@@ -69,7 +79,7 @@
   let dragging = $state(false);
   let startY = 0;
   function dragStart(e: TouchEvent) {
-    if ((e.target as HTMLElement).closest('.lyric, .slider, button')) return;
+    if (panel || (e.target as HTMLElement).closest('.lyric, .slider, button')) return;
     startY = e.touches[0].clientY;
     dragging = true;
   }
@@ -111,12 +121,13 @@
     <header>
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2.2} /></button>
       <div class="grabber" aria-hidden="true"></div>
-      <div class="tags">
-        <span class="q">{player.matchedFrom ? `${sourceName(t.source)} → ${sourceName(player.matchedFrom)}` : sourceName(t.source)}</span>
-        {#if player.trial}<span class="q">试听</span>{/if}
+      <button class="tags" onclick={() => openPanel('source')} aria-label="音源与音质" title="音源与音质">
+        <span class="q">{player.matchedFrom ? `${sourceName(player.matchedFrom)} → ${sourceName(t.source)}` : sourceName(t.source)}</span>
+        {#if player.trial}<span class="q warn">试听</span>{/if}
         {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
-      </div>
-      <button class="icon-btn" onclick={() => (app.sheet = 'queue')} aria-label="播放列表"><Icon name="queue" /></button>
+        <Icon name="chevronDown" size={12} stroke={2.4} />
+      </button>
+      <button class="icon-btn" class:on={panel && panelTab === 'queue'} onclick={() => openPanel('queue')} aria-label="播放列表"><Icon name="queue" /></button>
     </header>
 
     <div class="body">
@@ -163,7 +174,7 @@
           <button class="tool" class:on={mobileLyrics} onclick={() => (mobileLyrics = !mobileLyrics)} aria-pressed={mobileLyrics} aria-label="歌词">
             <Icon name="lyric" size={19} />
           </button>
-          <button class="tool" onclick={() => (app.sheet = 'queue')} aria-label="播放列表">
+          <button class="tool" onclick={() => openPanel('queue')} aria-label="播放列表">
             <Icon name="queue" size={19} />
           </button>
         </div>
@@ -194,6 +205,8 @@
         {/if}
       </div>
     </div>
+
+    <PlayerPanel open={panel} bind:tab={panelTab} onclose={() => (panel = false)} />
   </div>
 {/if}
 
@@ -261,7 +274,25 @@
   }
   .tags {
     display: flex;
+    align-items: center;
     gap: 6px;
+    padding: 4px 8px 4px 4px;
+    border-radius: 999px;
+    color: rgb(255 255 255 / 0.7);
+    transition: background-color var(--t-fast) var(--ease);
+  }
+  .tags:hover {
+    background: rgb(255 255 255 / 0.1);
+  }
+  .tags:active {
+    transform: scale(0.97);
+  }
+  .q.warn {
+    color: var(--warn);
+  }
+  header .icon-btn.on {
+    background: rgb(255 255 255 / 0.16);
+    color: #fff;
   }
   .q {
     font-size: 11px;
@@ -485,8 +516,11 @@
     .tags {
       position: absolute;
       left: 50%;
-      top: 22px;
+      top: 18px;
       transform: translateX(-50%);
+    }
+    .tags:active {
+      transform: translateX(-50%) scale(0.97);
     }
 
     .body {
