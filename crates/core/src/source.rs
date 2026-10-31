@@ -14,6 +14,8 @@ pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// 聚合请求时单个音源的最长等待时间。超时的音源结果被丢弃，不拖慢整体响应。
 const AGGREGATE_TIMEOUT: Duration = Duration::from_secs(8);
+/// 换源候选的播放地址校验超时，比聚合更短，避免逐个候选拖长面板等待。
+const CANDIDATE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub trait Source: Send + Sync {
     fn id(&self) -> &'static str;
@@ -204,15 +206,31 @@ impl Sources {
                     })
                     .collect();
                 ranked.sort_by_key(|(s, _)| *s);
-                // 每个音源最多校验前 3 个，拿到第一个可完整播放的即返回
-                for (score, t) in ranked.into_iter().take(3) {
-                    if let Ok(Ok(u)) = tokio::time::timeout(AGGREGATE_TIMEOUT, s.song_url(&t.id, level)).await {
-                        if u.trial.is_none() {
-                            return Some((score, t, u));
+                // 每个音源最多校验前 3 个候选，并发请求，取排序最靠前的可用版本
+                let picks: Vec<(u8, Track)> = ranked.into_iter().take(3).collect();
+                let order: Vec<u8> = picks.iter().map(|(s, _)| *s).collect();
+                let checks = picks.into_iter().map(|(_, t)| {
+                    let id = t.id.clone();
+                    async move {
+                        let u = tokio::time::timeout(CANDIDATE_TIMEOUT, s.song_url(&id, level)).await.ok()?.ok()?;
+                        if u.trial.is_none() && u.url.starts_with("http") {
+                            Some((t, u))
+                        } else {
+                            None
+                        }
+                    }
+                });
+                let results = futures_util::future::join_all(checks).await;
+                // 保持原始排序：score 越小越优先
+                let mut best: Option<(u8, Track, SongUrl)> = None;
+                for (score, r) in order.into_iter().zip(results) {
+                    if let Some((t, u)) = r {
+                        if best.as_ref().is_none_or(|(bs, _, _)| score < *bs) {
+                            best = Some((score, t, u));
                         }
                     }
                 }
-                None
+                best
             }
         });
         let mut found: Vec<(u8, Track, SongUrl)> = futures_util::future::join_all(tasks).await.into_iter().flatten().collect();

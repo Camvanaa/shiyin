@@ -247,7 +247,8 @@ impl Source for Kuwo {
                 .await?;
             let data = if v["data"].is_object() { &v["data"] } else { &v };
             let url = s(&data["url"]);
-            if url.is_empty() {
+            // 酷我在无版权/受版权限制时会返回字符串 "None" 而不是空值
+            if url.is_empty() || !url.starts_with("http") {
                 return Err(Error::Unavailable);
             }
             // 个别地区会被风控重定向到无关试听，校验 rid 一致性
