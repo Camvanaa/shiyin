@@ -129,7 +129,8 @@ pub enum Resolved {
     Song { source: String, id: String },
     Playlist { source: String, id: String },
     Album { source: String, id: String },
-    Query(String),
+    /// 内部标签枚举不能用 newtype 变体，否则 serde 序列化会失败
+    Query { value: String },
 }
 
 pub fn default_source() -> String {
@@ -169,4 +170,29 @@ pub struct HomeFeed {
     pub playlists: Vec<PlaylistBrief>,
     pub charts: Vec<PlaylistBrief>,
     pub new_songs: Vec<Track>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 回归：带内部标签的枚举不能用 newtype 变体，否则 serde 序列化会失败。
+    #[test]
+    fn resolved_serializes() {
+        let cases = [
+            Resolved::Query { value: "周杰伦 晴天".into() },
+            Resolved::Song { source: "qq".into(), id: "0039MnYb0qxYhV".into() },
+            Resolved::Playlist { source: "netease".into(), id: "3778678".into() },
+            Resolved::Album { source: "kuwo".into(), id: "228908".into() },
+        ];
+        for c in cases {
+            let v = serde_json::to_value(&c).expect("序列化失败");
+            assert!(v.get("type").is_some(), "缺少 type 字段：{v}");
+            let back: Resolved = serde_json::from_value(v).expect("反序列化失败");
+            assert_eq!(back, c);
+        }
+        let v = serde_json::to_value(Resolved::Query { value: "abc".into() }).unwrap();
+        assert_eq!(v["type"], "query");
+        assert_eq!(v["value"], "abc");
+    }
 }

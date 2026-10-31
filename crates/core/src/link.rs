@@ -46,7 +46,7 @@ pub fn classify(text: &str) -> std::result::Result<Resolved, String> {
             return Ok(Resolved::Song { source: "netease".into(), id: id.to_string() });
         }
     }
-    Ok(Resolved::Query(text.to_owned()))
+    Ok(Resolved::Query { value: text.to_owned() })
 }
 
 

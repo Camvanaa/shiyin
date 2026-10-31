@@ -117,7 +117,7 @@ impl Sources {
                 }
             }
         }
-        Ok(Resolved::Query(text.to_owned()))
+        Ok(Resolved::Query { value: text.to_owned() })
     }
 
     async fn expand_short_link(&self, url: &str) -> Result<String> {

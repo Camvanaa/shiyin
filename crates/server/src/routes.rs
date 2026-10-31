@@ -155,8 +155,8 @@ async fn home(State(c): State<Ctx>, Query(q): Query<SourceQ>) -> R<shiyin_core::
     Ok(Json(c.app.sources.home(&q.source).await?))
 }
 
-async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<Value> {
-    Ok(Json(serde_json::to_value(c.app.sources.resolve(&q.q).await?).unwrap()))
+async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<shiyin_core::Resolved> {
+    Ok(Json(c.app.sources.resolve(&q.q).await?))
 }
 
 async fn sources(State(c): State<Ctx>) -> Json<Value> {

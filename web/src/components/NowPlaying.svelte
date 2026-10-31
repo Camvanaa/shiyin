@@ -134,7 +134,7 @@
           {#key t.id}
             <div class="swap">
               <div class="name ellipsis">{t.name}</div>
-              <div class="artist ellipsis">{artists(t)}{#if t.album} — {t.album}{/if}</div>
+              <div class="artist ellipsis">{artists(t)}{#if t.album}{' — '}{t.album}{/if}</div>
             </div>
           {/key}
         </div>
@@ -576,14 +576,15 @@
       display: block;
       order: -1;
       flex: 1;
+      width: 100%;
       min-height: 0;
       max-height: none;
-      margin: 0 -8px 4px;
-      padding: 0 8px;
+      margin: 0 0 6px;
       mask-image: linear-gradient(transparent, #000 8%, #000 86%, transparent);
     }
     .lyrics-mode .left {
       flex: none;
+      width: 100%;
     }
     .lyrics-mode .meta {
       margin-top: 4px;
@@ -607,8 +608,13 @@
     }
     .line {
       font-size: 24px;
-      padding: 10px 0;
+      padding: 10px 4px;
       margin-left: 0;
+      transform-origin: left center;
+      transform: scale(0.96);
+    }
+    .line.on {
+      transform: none;
     }
     .trans {
       font-size: 15px;
