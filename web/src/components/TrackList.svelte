@@ -141,7 +141,7 @@
             {/if}
           </span>
         </button>
-        <div class="title">
+        <div class="title" role="button" tabindex="0" onclick={() => onplay(idx)} onkeydown={(e) => e.key === 'Enter' && onplay(idx)}>
           <div class="name ellipsis">
             {t.name}{#if t.alias}<span class="alias">（{t.alias}）</span>{/if}
           </div>
@@ -475,4 +475,32 @@
       opacity: 1;
     }
   }
+  @media (max-width: 760px) {
+    .row {
+      grid-template-columns: auto minmax(0, 1fr) 44px;
+      gap: 10px;
+      padding: 0 4px;
+    }
+    .row:has(.check) {
+      grid-template-columns: 28px auto minmax(0, 1fr) 44px;
+    }
+    .dur {
+      display: none;
+    }
+    .actions {
+      opacity: 1 !important;
+      gap: 0;
+    }
+    .actions .icon-btn:first-child {
+      display: none; /* 移动端隐藏下载快捷按钮，收纳在更多菜单里 */
+    }
+    .actions .icon-btn {
+      width: 40px;
+      height: 40px;
+    }
+    .title {
+      cursor: pointer;
+    }
+  }
+
 </style>

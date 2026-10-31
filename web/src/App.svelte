@@ -12,6 +12,10 @@
   import Login from './components/Login.svelte';
   import TokenPrompt from './components/TokenPrompt.svelte';
   import Toasts from './components/Toasts.svelte';
+  import MobileTabBar from './components/MobileTabBar.svelte';
+  import MobilePlayerPill from './components/MobilePlayerPill.svelte';
+  import MobileSearch from './components/MobileSearch.svelte';
+
   import { app } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
   import { year } from './lib/format';
@@ -51,6 +55,16 @@
   }
 
   const v = $derived(app.view);
+  const mobileHeaderTitle = $derived.by(() => {
+    if (v.kind === 'home') return '发现';
+    if (v.kind === 'search') return '搜索';
+    if (v.kind === 'song') return '歌曲详情';
+    if (v.kind === 'collection') {
+      return v.data.kind === 'album' ? '专辑' : v.data.kind === 'toplist' ? '排行榜' : '歌单';
+    }
+    return '拾音';
+  });
+
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -63,13 +77,25 @@
       {/if}
       <button class="brand" onclick={() => app.home()} aria-label="首页">
         <img src="/icon.svg" alt="" width="22" height="22" />
-        <span>拾音</span>
+        <span class="desktop-only">拾音</span>
       </button>
     </div>
-    <div class="top-mid">
+    <div class="top-title mobile-only ellipsis">
+      {mobileHeaderTitle}
+    </div>
+    <div class="top-mid desktop-only">
       <SearchBox />
     </div>
-    <div class="top-right">
+    <div class="top-right mobile-only">
+      <button class="avatar" onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
+        {#if app.account}
+          <img src={app.account.avatar + '?param=64y64'} alt="" width="26" height="26" />
+        {:else}
+          <Icon name="user" size={17} />
+        {/if}
+      </button>
+    </div>
+    <div class="top-right desktop-only">
       <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
         <Icon name="download" />
         {#if app.activeJobs}<span class="count tabular">{app.activeJobs}</span>{/if}
@@ -99,29 +125,33 @@
           {#if v.kind === 'home'}
             <Home />
           {:else if v.kind === 'search'}
-            <CollectionView
-              kind="search"
-              eyebrow="搜索结果"
-              title={`“${v.q}”`}
-              tracks={v.tracks}
-              {scroller}
-              onreachend={() => app.searchMore()}
-            >
-              {#snippet subhead()}
-                <div class="src-tabs" role="tablist" aria-label="切换搜索音源">
-                  {#each [['all', '全部音源'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
-                    <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
-                      {label}
-                    </button>
-                  {/each}
-                </div>
-              {/snippet}
-              {#snippet footer()}
-                <div class="more">
-                  {#if app.loading}<span class="spinner"></span>{:else if v.done}<span class="faint">没有更多了</span>{/if}
-                </div>
-              {/snippet}
-            </CollectionView>
+            {#if !v.q}
+              <MobileSearch />
+            {:else}
+              <CollectionView
+                kind="search"
+                eyebrow="搜索结果"
+                title={`“${v.q}”`}
+                tracks={v.tracks}
+                {scroller}
+                onreachend={() => app.searchMore()}
+              >
+                {#snippet subhead()}
+                  <div class="src-tabs" role="tablist" aria-label="切换搜索音源">
+                    {#each [['all', '全部音源'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
+                      <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
+                        {label}
+                      </button>
+                    {/each}
+                  </div>
+                {/snippet}
+                {#snippet footer()}
+                  <div class="more">
+                    {#if app.loading}<span class="spinner"></span>{:else if v.done}<span class="faint">没有更多了</span>{/if}
+                  </div>
+                {/snippet}
+              </CollectionView>
+            {/if}
           {:else if v.kind === 'song'}
             <SongView track={v.track} />
           {:else if v.kind === 'collection'}
@@ -144,7 +174,13 @@
     </div>
   </main>
 
-  <PlayerBar />
+  <div class="desktop-only">
+    <PlayerBar />
+  </div>
+  <div class="mobile-only">
+    <MobilePlayerPill />
+    <MobileTabBar />
+  </div>
 </div>
 
 <NowPlaying />
@@ -323,4 +359,34 @@
       padding: 6px 10px calc(24px + var(--sab));
     }
   }
+  .desktop-only {
+    display: flex;
+  }
+  .mobile-only {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .desktop-only {
+      display: none !important;
+    }
+    .mobile-only {
+      display: flex !important;
+    }
+    .top {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      padding: 0 10px;
+      height: 48px;
+    }
+    .top-title {
+      font: 600 16px var(--font-display);
+      text-align: center;
+      color: var(--fg);
+    }
+    .page {
+      padding: 6px 12px calc(var(--playbar) + 60px + var(--sab));
+    }
+  }
+
 </style>

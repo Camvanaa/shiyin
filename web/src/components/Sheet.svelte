@@ -54,6 +54,7 @@
 {#if mounted}
   <div class="scrim" class:closing onclick={() => dismissible && onclose()} role="presentation"></div>
   <div class="sheet" class:side class:closing style:--w="{width}px" role="dialog" aria-modal="true" aria-label={title}>
+    <div class="sheet-grabber-wrap"><div class="sheet-grabber"></div></div>
     <header>
       <h2>{title}</h2>
       <div class="acts">
@@ -162,4 +163,62 @@
     overflow: auto;
     padding: 0 20px 20px;
   }
+  .sheet-grabber-wrap {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .sheet-grabber-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0 0;
+    }
+    .sheet-grabber {
+      width: 36px;
+      height: 4.5px;
+      border-radius: 99px;
+      background: var(--line-2);
+    }
+
+    .sheet, .sheet.side {
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      top: auto !important;
+      width: 100% !important;
+      max-height: 88vh !important;
+      border-radius: 20px 20px 0 0 !important;
+      transform: none !important;
+      padding-bottom: var(--sab);
+      animation: bottom-sheet-in 320ms var(--ease-out) both !important;
+    }
+
+    .sheet.closing, .sheet.side.closing {
+      animation: bottom-sheet-out 240ms var(--ease) both !important;
+    }
+
+    @keyframes bottom-sheet-in {
+      from {
+        transform: translateY(100%) !important;
+      }
+      to {
+        transform: translateY(0) !important;
+      }
+    }
+
+    @keyframes bottom-sheet-out {
+      to {
+        transform: translateY(100%) !important;
+      }
+    }
+
+    header {
+      height: 48px;
+      padding: 0 14px 0 18px;
+    }
+    .content {
+      padding: 0 16px 16px;
+    }
+  }
+
 </style>

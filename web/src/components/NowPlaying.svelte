@@ -14,6 +14,7 @@
   let userScrolling = $state(false);
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   let scrub = $state<number | null>(null);
+  let mobileLyricMode = $state(false);
 
   // 歌词行提前 0.15s 切换，视觉上更跟手。player.time 在播放时逐帧更新。
   $effect(() => {
@@ -57,6 +58,9 @@
 {#if t && player.expanded}
   <div class="np" style:--tint={player.tint || '120 120 128'} role="dialog" aria-label="正在播放">
     <div class="bg"></div>
+    <div class="grabber-wrap" onclick={close} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && close()} aria-label="收起播放器">
+      <div class="grabber"></div>
+    </div>
     <header>
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2} /></button>
       <span class="tags">
@@ -67,10 +71,10 @@
       <button class="icon-btn" onclick={() => (app.sheet = 'queue')} aria-label="播放列表"><Icon name="queue" /></button>
     </header>
 
-    <div class="body">
+    <div class="body" class:mobile-lyric={mobileLyricMode}>
       <div class="left">
         {#key t.id}
-          <div class="art" class:paused={!player.playing}>
+          <div class="art" class:paused={!player.playing} onclick={() => (mobileLyricMode = !mobileLyricMode)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (mobileLyricMode = !mobileLyricMode)}>
             <img use:fade src={img(t.cover, 400)} alt="" decoding="async" />
           </div>
         {/key}
@@ -96,6 +100,14 @@
             <Icon name={player.playing ? 'pause' : 'play'} />
           </button>
           <button class="ctl" onclick={() => player.next()} aria-label="下一首"><Icon name="next" /></button>
+                    <button
+            class="icon-btn mobile-lyric-toggle"
+            class:on={mobileLyricMode}
+            onclick={() => (mobileLyricMode = !mobileLyricMode)}
+            aria-label="切换歌词"
+          >
+            <Icon name="lyric" size={20} />
+          </button>
           <button class="icon-btn rep" class:on={player.repeat !== 'off'} onclick={() => player.cycleRepeat()} aria-label="循环模式">
             <Icon name="repeat" />{#if player.repeat === 'one'}<span class="one">1</span>{/if}
           </button>
@@ -385,4 +397,103 @@
       font-size: 22px;
     }
   }
+  .grabber-wrap {
+    display: none;
+  }
+
+  @media (max-width: 860px) {
+    .grabber-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 10px 0 4px;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .grabber {
+      width: 38px;
+      height: 4.5px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.3);
+      transition: background var(--t-fast) var(--ease);
+    }
+    .grabber-wrap:active .grabber {
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    header {
+      height: 48px;
+      padding: 0 14px;
+    }
+
+    .body {
+      grid-template-columns: 1fr;
+      padding: 0 20px calc(24px + var(--sab));
+      gap: 16px;
+      height: calc(100% - 60px);
+      max-height: none;
+    }
+
+    /* 移动端艺术封面与歌词切换 */
+    .left {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .art {
+      width: min(72vw, 320px);
+      max-width: 320px;
+      margin: 12px auto 0;
+      border-radius: 16px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+    }
+
+    .meta {
+      margin-top: 18px;
+    }
+    .name {
+      font-size: 20px;
+    }
+    .artist {
+      font-size: 15px;
+    }
+
+    .controls {
+      margin-top: 10px;
+      padding: 0 8px;
+    }
+    .ctl {
+      width: 56px;
+      height: 56px;
+    }
+    .ctl.big {
+      width: 68px;
+      height: 68px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .lyric {
+      display: none;
+      height: 100%;
+      max-height: none;
+    }
+
+    /* 当开启移动端歌词模式时 */
+    .body.mobile-lyric .art {
+      display: none;
+    }
+    .body.mobile-lyric .lyric {
+      display: block;
+      flex: 1;
+      min-height: 0;
+      margin-bottom: 12px;
+    }
+    .body.mobile-lyric .line {
+      font-size: 24px;
+    }
+  }
+
 </style>
