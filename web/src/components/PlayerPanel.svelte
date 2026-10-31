@@ -76,6 +76,18 @@
   }
 
   const levelLabel = (v: string) => LEVELS.find((l) => l.value === v)?.label ?? v;
+
+  /** 候选与当前曲目的差异提示：歌手不同 / 时长差异大 */
+  function hint(c: MatchCandidate): string {
+    if (!t) return '';
+    const a = artists(t).toLowerCase();
+    const b = artists(c.track).toLowerCase();
+    const sameArtist = a && b && (a.includes(b) || b.includes(a) || a.split(' / ').some((x) => b.includes(x)));
+    const dur = t.duration > 0 && c.track.duration > 0 ? Math.abs(c.track.duration - t.duration) / t.duration : 0;
+    if (!sameArtist) return '歌手不同，可能是翻唱';
+    if (dur > 0.12) return '时长差异较大';
+    return '';
+  }
   const sourceLevels = $derived(t ? (player.current ? LEVELS : []) : []);
   const sameTrack = (a: Track, b: Track | null) => !!b && a.id === b.id && a.source === b.source;
 </script>
@@ -177,7 +189,8 @@
                 </div>
                 <div class="tag">
                   <span class="src">{sourceName(c.track.source)}</span>
-                  <small>{levelLabel(c.url.level)}{#if c.url.format} · {c.url.format.toUpperCase()}{/if} · {duration(c.track.duration)}</small>
+                  <small>{levelLabel(c.url.level)}{#if c.url.format && c.url.format !== 'none'} · {c.url.format.toUpperCase()}{/if} · {duration(c.track.duration)}</small>
+                  {#if hint(c)}<small class="hint">{hint(c)}</small>{/if}
                 </div>
               </button>
             {/each}
@@ -440,6 +453,9 @@
     font-size: 10.5px;
     color: rgb(255 255 255 / 0.45);
     white-space: nowrap;
+  }
+  .tag .hint {
+    color: var(--warn);
   }
   .levels {
     display: grid;
