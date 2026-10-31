@@ -222,16 +222,18 @@ impl Source for QQ {
         None
     }
 
-    fn search<'a>(&'a self, keywords: &'a str, limit: u32, _offset: u32) -> BoxFut<'a, Vec<Track>> {
+    fn search<'a>(&'a self, keywords: &'a str, limit: u32, offset: u32) -> BoxFut<'a, Vec<Track>> {
         Box::pin(async move {
+            let n = limit.clamp(1, 100);
+            let page = offset / n + 1;
             let v = self
                 .get(
                     "https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp",
                     &[
                         ("w", keywords.to_string()),
                         ("format", "json".into()),
-                        ("p", "1".into()),
-                        ("n", limit.clamp(1, 100).to_string()),
+                        ("p", page.to_string()),
+                        ("n", n.to_string()),
                     ],
                 )
                 .await?;
