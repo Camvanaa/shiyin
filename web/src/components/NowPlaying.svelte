@@ -14,7 +14,7 @@
   let userScrolling = $state(false);
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   let scrub = $state<number | null>(null);
-  let mobileLyricMode = $state(false);
+  let mobileMode = $state<'art' | 'lyrics'>('art');
 
   // 歌词行提前 0.15s 切换，视觉上更跟手。player.time 在播放时逐帧更新。
   $effect(() => {
@@ -32,7 +32,7 @@
     if (!lyricBox || userScrolling) return;
     const el = lyricBox.querySelector<HTMLElement>(`[data-i="${Math.max(0, i)}"]`);
     if (!el) return;
-    offset = lyricBox.clientHeight * 0.4 - (el.offsetTop + el.offsetHeight / 2);
+    offset = lyricBox.clientHeight * 0.45 - (el.offsetTop + el.offsetHeight / 2);
   });
 
   function onWheel(e: WheelEvent) {
@@ -56,25 +56,29 @@
 <svelte:window onkeydown={onKey} />
 
 {#if t && player.expanded}
-  <div class="np" style:--tint={player.tint || '120 120 128'} role="dialog" aria-label="正在播放">
+  <div class="np" style:--tint={player.tint || '120 120 128'} role="dialog" aria-modal="true" aria-label="正在播放">
     <div class="bg"></div>
+
+    <!-- 移动端顶部下拉横条抓手 -->
     <div class="grabber-wrap" onclick={close} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && close()} aria-label="收起播放器">
       <div class="grabber"></div>
     </div>
+
     <header>
-      <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2} /></button>
-      <span class="tags">
+      <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2.2} /></button>
+      <div class="tags">
         <span class="q">{player.matchedFrom ? `${sourceName(t.source)} → ${sourceName(player.matchedFrom)}` : sourceName(t.source)}</span>
         {#if player.trial}<span class="q">试听</span>{/if}
         {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
-      </span>
+      </div>
       <button class="icon-btn" onclick={() => (app.sheet = 'queue')} aria-label="播放列表"><Icon name="queue" /></button>
     </header>
 
-    <div class="body" class:mobile-lyric={mobileLyricMode}>
+    <!-- 桌面端宽屏布局 -->
+    <div class="body desktop-only">
       <div class="left">
         {#key t.id}
-          <div class="art" class:paused={!player.playing} onclick={() => (mobileLyricMode = !mobileLyricMode)} role="button" tabindex="0" onkeydown={(e) => e.key === "Enter" && (mobileLyricMode = !mobileLyricMode)}>
+          <div class="art" class:paused={!player.playing}>
             <img use:fade src={img(t.cover, 400)} alt="" decoding="async" />
           </div>
         {/key}
@@ -100,14 +104,6 @@
             <Icon name={player.playing ? 'pause' : 'play'} />
           </button>
           <button class="ctl" onclick={() => player.next()} aria-label="下一首"><Icon name="next" /></button>
-                    <button
-            class="icon-btn mobile-lyric-toggle"
-            class:on={mobileLyricMode}
-            onclick={() => (mobileLyricMode = !mobileLyricMode)}
-            aria-label="切换歌词"
-          >
-            <Icon name="lyric" size={20} />
-          </button>
           <button class="icon-btn rep" class:on={player.repeat !== 'off'} onclick={() => player.cycleRepeat()} aria-label="循环模式">
             <Icon name="repeat" />{#if player.repeat === 'one'}<span class="one">1</span>{/if}
           </button>
@@ -138,6 +134,119 @@
         {/if}
       </div>
     </div>
+
+    <!-- 移动端纵向一体化 Apple 播放界面 -->
+    <div class="mobile-layout mobile-only">
+      <!-- 中部核心：点击可在封面与歌词间切换 -->
+      <div class="m-center">
+        {#if mobileMode === 'art'}
+          <div
+            class="m-art-wrap"
+            role="button"
+            tabindex="0"
+            onclick={() => (mobileMode = 'lyrics')}
+            onkeydown={(e) => e.key === 'Enter' && (mobileMode = 'lyrics')}
+            aria-label="点击切换为歌词"
+          >
+            {#key t.id}
+              <div class="m-art" class:paused={!player.playing}>
+                <img use:fade src={img(t.cover, 400)} alt="" decoding="async" />
+              </div>
+            {/key}
+          </div>
+        {:else}
+          <div
+            class="m-lyric-wrap"
+            role="region"
+            aria-label="歌词"
+            bind:this={lyricBox}
+            bind:clientHeight={boxH}
+          >
+            {#if player.lyric.length}
+              <div class="lines" style:transform="translateY({offset}px)">
+                {#each player.lyric as l, i}
+                  <button
+                    class="line"
+                    class:on={i === active}
+                    data-i={i}
+                    onclick={() => player.seek(l.t / 1000)}
+                  >
+                    {l.text}
+                    {#if l.trans}<span class="trans">{l.trans}</span>{/if}
+                  </button>
+                {/each}
+              </div>
+            {:else}
+              <div class="empty">{player.loading ? '正在获取歌词…' : '纯音乐，或暂无歌词'}</div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- 下部控制区：曲名、进度条、大按键 -->
+      <div class="m-bottom">
+        <div class="m-meta">
+          <div class="name ellipsis">{t.name}</div>
+          <div class="artist ellipsis">{artists(t)} — {t.album}</div>
+        </div>
+
+        <div class="progress">
+          <Slider
+            label="播放进度"
+            value={player.time}
+            max={player.duration || 1}
+            buffered={player.buffered}
+            oninput={(v) => (scrub = v)}
+            onchange={(v) => player.seek(v)}
+          />
+          <div class="times tabular">
+            <span>{duration((scrub ?? player.time) * 1000)}</span>
+            <span>-{duration(Math.max(0, player.duration - (scrub ?? player.time)) * 1000)}</span>
+          </div>
+        </div>
+
+        <div class="m-controls">
+          <button class="m-ctl-sm" class:on={player.shuffle} onclick={() => (player.shuffle = !player.shuffle)} aria-label="随机播放">
+            <Icon name="shuffle" size={20} />
+          </button>
+          <button class="m-ctl" onclick={() => player.prev()} aria-label="上一首">
+            <Icon name="prev" size={28} />
+          </button>
+          <button class="m-ctl-play" onclick={() => player.toggle()} aria-label={player.playing ? '暂停' : '播放'}>
+            <Icon name={player.playing ? 'pause' : 'play'} size={32} />
+          </button>
+          <button class="m-ctl" onclick={() => player.next()} aria-label="下一首">
+            <Icon name="next" size={28} />
+          </button>
+          <button class="m-ctl-sm rep" class:on={player.repeat !== 'off'} onclick={() => player.cycleRepeat()} aria-label="循环模式">
+            <Icon name="repeat" size={20} />
+            {#if player.repeat === 'one'}<span class="one">1</span>{/if}
+          </button>
+        </div>
+
+        <!-- 移动端底部切换：歌词 / 播放队列 -->
+        <div class="m-sub-actions">
+          <button
+            class="m-sub-btn"
+            class:active={mobileMode === 'lyrics'}
+            onclick={() => (mobileMode = mobileMode === 'lyrics' ? 'art' : 'lyrics')}
+            aria-label="切换歌词"
+          >
+            <Icon name="lyric" size={20} />
+            <span>{mobileMode === 'lyrics' ? '封面' : '歌词'}</span>
+          </button>
+
+          <button
+            class="m-sub-btn"
+            onclick={() => (app.sheet = 'queue')}
+            aria-label="播放队列"
+          >
+            <Icon name="queue" size={20} />
+            <span>队列 ({player.queue.length})</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 {/if}
 
@@ -145,18 +254,21 @@
   .np {
     position: fixed;
     inset: 0;
-    z-index: 50;
+    z-index: 95; /* 覆盖主页面与底栏 */
     display: flex;
     flex-direction: column;
     color: #fff;
     background: #111;
     animation: np-in var(--t-slow) var(--ease) both;
+    user-select: none;
+    -webkit-user-select: none;
   }
   @keyframes np-in {
     from {
       transform: translateY(100%);
     }
   }
+
   .bg {
     position: absolute;
     inset: 0;
@@ -175,6 +287,11 @@
     inset: 0;
     background: linear-gradient(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.45));
   }
+
+  .grabber-wrap {
+    display: none;
+  }
+
   header {
     position: relative;
     display: flex;
@@ -182,6 +299,7 @@
     justify-content: space-between;
     height: 56px;
     padding: 0 16px;
+    flex: none;
   }
   header .icon-btn {
     color: rgb(255 255 255 / 0.8);
@@ -203,6 +321,8 @@
     background: rgb(255 255 255 / 0.14);
     color: rgb(255 255 255 / 0.85);
   }
+
+  /* 桌面端双栏 */
   .body {
     position: relative;
     flex: 1;
@@ -286,10 +406,6 @@
     color: rgb(255 255 255 / 0.6);
     position: relative;
   }
-  .controls .icon-btn:hover {
-    background: rgb(255 255 255 / 0.1);
-    color: #fff;
-  }
   .controls .icon-btn.on {
     color: #fff;
   }
@@ -307,9 +423,7 @@
     display: grid;
     place-items: center;
     color: #fff;
-    transition:
-      transform var(--t-fast) var(--ease),
-      background-color var(--t-fast) var(--ease);
+    transition: transform var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
   }
   .ctl:hover {
     background: rgb(255 255 255 / 0.1);
@@ -353,9 +467,7 @@
     color: rgb(255 255 255 / 0.32);
     transform-origin: left center;
     transform: scale(0.94);
-    transition:
-      color 500ms var(--ease),
-      transform 600ms var(--ease);
+    transition: color 500ms var(--ease), transform 600ms var(--ease);
   }
   .line:hover {
     background: rgb(255 255 255 / 0.06);
@@ -382,26 +494,158 @@
     font-size: 17px;
   }
 
-  @media (max-width: 860px) {
-    .body {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr;
-      padding: 0 24px 24px;
-      gap: 24px;
-      align-items: start;
-    }
-    .art {
-      max-width: 260px;
-    }
-    .line {
-      font-size: 22px;
-    }
+  /* 移动端专属一体化排版 */
+  .mobile-layout {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px calc(16px + var(--sab));
   }
-  .grabber-wrap {
-    display: none;
+
+  .m-center {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .m-art-wrap {
+    width: 100%;
+    max-width: 320px;
+    aspect-ratio: 1;
+    cursor: pointer;
+    outline: none;
+  }
+  .m-art {
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgb(255 255 255 / 0.08);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+    transition: transform 600ms var(--ease);
+  }
+  .m-art.paused {
+    transform: scale(0.9);
+  }
+  .m-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .m-lyric-wrap {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    mask-image: linear-gradient(transparent, #000 12%, #000 85%, transparent);
+    padding: 0 10px;
+  }
+  .m-lyric-wrap .line {
+    font-size: 24px;
+    padding: 12px 0;
+    margin-left: 0;
+  }
+
+  .m-bottom {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 10px;
+  }
+
+  .m-meta .name {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .m-meta .artist {
+    font-size: 14px;
+    color: rgb(255 255 255 / 0.65);
+    margin-top: 2px;
+  }
+
+  .m-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+  .m-ctl-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: rgb(255 255 255 / 0.65);
+    position: relative;
+  }
+  .m-ctl-sm.on {
+    color: #fff;
+  }
+  .m-ctl {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    transition: transform var(--t-fast) var(--ease);
+  }
+  .m-ctl:active {
+    transform: scale(0.9);
+  }
+  .m-ctl-play {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    color: #111;
+    transition: transform var(--t-fast) var(--ease);
+  }
+  .m-ctl-play:active {
+    transform: scale(0.92);
+  }
+
+  .m-sub-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-top: 6px;
+  }
+  .m-sub-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgb(255 255 255 / 0.7);
+    font-size: 12px;
+    font-weight: 500;
+    transition: all var(--t-fast) var(--ease);
+  }
+  .m-sub-btn:active {
+    transform: scale(0.95);
+  }
+  .m-sub-btn.active {
+    background: #fff;
+    color: #111;
   }
 
   @media (max-width: 860px) {
+    .desktop-only {
+      display: none !important;
+    }
+    .mobile-only {
+      display: flex !important;
+    }
     .grabber-wrap {
       display: flex;
       justify-content: center;
@@ -414,86 +658,11 @@
       height: 4.5px;
       border-radius: 99px;
       background: rgba(255, 255, 255, 0.3);
-      transition: background var(--t-fast) var(--ease);
-    }
-    .grabber-wrap:active .grabber {
-      background: rgba(255, 255, 255, 0.6);
-    }
-
-    header {
-      height: 48px;
-      padding: 0 14px;
-    }
-
-    .body {
-      grid-template-columns: 1fr;
-      padding: 0 20px calc(24px + var(--sab));
-      gap: 16px;
-      height: calc(100% - 60px);
-      max-height: none;
-    }
-
-    /* 移动端艺术封面与歌词切换 */
-    .left {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .art {
-      width: min(72vw, 320px);
-      max-width: 320px;
-      margin: 12px auto 0;
-      border-radius: 16px;
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-      cursor: pointer;
-    }
-
-    .meta {
-      margin-top: 18px;
-    }
-    .name {
-      font-size: 20px;
-    }
-    .artist {
-      font-size: 15px;
-    }
-
-    .controls {
-      margin-top: 10px;
-      padding: 0 8px;
-    }
-    .ctl {
-      width: 56px;
-      height: 56px;
-    }
-    .ctl.big {
-      width: 68px;
-      height: 68px;
-      background: rgba(255, 255, 255, 0.18);
-    }
-
-    .lyric {
-      display: none;
-      height: 100%;
-      max-height: none;
-    }
-
-    /* 当开启移动端歌词模式时 */
-    .body.mobile-lyric .art {
-      display: none;
-    }
-    .body.mobile-lyric .lyric {
-      display: block;
-      flex: 1;
-      min-height: 0;
-      margin-bottom: 12px;
-    }
-    .body.mobile-lyric .line {
-      font-size: 24px;
     }
   }
-
+  @media (min-width: 861px) {
+    .mobile-only {
+      display: none !important;
+    }
+  }
 </style>

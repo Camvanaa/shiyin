@@ -25,7 +25,7 @@
   }
 </script>
 
-{#if t}
+{#if t && !player.expanded}
   <div
     class="pill-wrap"
     role="button"
