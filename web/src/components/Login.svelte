@@ -90,7 +90,7 @@
 </script>
 
 <Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={420}>
-  <div class="seg plat" role="tablist">
+  <div class="seg-ctl plat" role="tablist">
     {#each [['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as const as [id, label]}
       <button class:on={platform === id} onclick={() => ((platform = id), (extCookie = ''))} role="tab" aria-selected={platform === id}>{label}</button>
     {/each}
@@ -276,14 +276,14 @@
     resize: none;
     word-break: break-all;
   }
-  .seg.plat {
+  .plat {
+    display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
-  .seg.plat button.on {
-    background: var(--bg-elev);
-    border-radius: 7px;
-    box-shadow: var(--shadow-sm);
+  .plat button {
+    height: 28px;
+    font-size: 13px;
   }
   .row-btns {
     display: flex;

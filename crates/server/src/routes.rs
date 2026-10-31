@@ -187,7 +187,7 @@ fn default_limit() -> u32 {
 
 async fn search(State(c): State<Ctx>, Query(q): Query<SearchQ>) -> R<Vec<Track>> {
     if q.source.is_empty() || q.source == "all" {
-        return Ok(Json(c.app.sources.search_all(&q.q, q.limit).await));
+        return Ok(Json(c.app.sources.search_all(&q.q, q.limit, q.offset).await));
     }
     let src = pick(&c, &q.source)?;
     Ok(Json(src.search(&q.q, q.limit, q.offset).await?))
@@ -211,8 +211,7 @@ struct SourceQ {
 }
 
 fn pick<'a>(c: &'a Ctx, source: &str) -> Result<&'a shiyin_core::DynSource, ApiError> {
-    let key = if source.is_empty() { "netease" } else { source };
-    c.app.sources.get(key).ok_or_else(|| ApiError(StatusCode::BAD_REQUEST, format!("未知音源：{key}")))
+    c.app.sources.pick(source).map_err(ApiError::from)
 }
 
 async fn song_url(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<LevelQ>) -> R<shiyin_core::SongUrl> {

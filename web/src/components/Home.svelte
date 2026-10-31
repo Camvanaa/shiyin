@@ -1,34 +1,31 @@
 <script lang="ts">
   import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
-  import { app } from '../lib/app.svelte';
+  import { app, SOURCE_TABS } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
   import { history, clearHistory } from '../lib/history.svelte';
-  import { artists, img, sourceShort } from '../lib/format';
+  import { artists, collectionKindLabel, img, sourceShort } from '../lib/format';
   import type { PlaylistBrief, Track } from '../lib/types';
 
   const recent = $derived(history.items.filter((h) => h.kind !== 'query').slice(0, 6));
-  const feed = $derived(app.feed);
-  const currentId = $derived(player.current?.id);
+  const currentKey = $derived(player.current ? `${player.current.source}:${player.current.id}` : '');
+  /** 加载完成后的内容；加载中为 null，模板据此渲染骨架 */
+  const feed = $derived(app.homeLoading ? null : app.feed);
 
-  const fallbackCharts: PlaylistBrief[] = [];
-
-  const charts = $derived(feed?.charts.length ? feed.charts : fallbackCharts);
   const kindLabel = { song: '歌曲', playlist: '歌单', album: '专辑', query: '' } as const;
 
   function playNew(i: number) {
-    if (feed?.newSongs.length) player.playList(feed.newSongs, i);
+    const f = feed;
+    if (f?.newSongs.length) player.playList(f.newSongs, i);
   }
 </script>
 
 <div class="home">
   <header class="page-head">
     <h1>主页</h1>
-    <div class="tabs" role="tablist" aria-label="音源">
-      {#each [['all', '聚合'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
-        <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
-          {label}
-        </button>
+    <div class="seg-ctl" role="tablist" aria-label="音源">
+      {#each SOURCE_TABS as [id, label] (id)}
+        <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>{label}</button>
       {/each}
     </div>
   </header>
@@ -41,7 +38,7 @@
       </div>
       <div class="shelf">
         {#each recent as h, i (h.at)}
-          <button class="card" style:--d="{i * 22}ms" onclick={() => app.submit(h.q)}>
+          <button class="card" style:--d="{i * 24}ms" onclick={() => app.submit(h.q)}>
             <span class="art">
               {#if h.cover}<img use:fade src={img(h.cover, 200)} alt="" decoding="async" />{/if}
             </span>
@@ -55,59 +52,59 @@
 
   <section>
     <div class="sec-head"><h2>推荐歌单</h2></div>
-    {#if !feed || app.homeLoading}
-      <div class="shelf">
+    <div class="shelf">
+      {#if feed}
+        {#each feed.playlists.slice(0, 5) as p, i (`${p.source}:${p.id}`)}
+          {@render playlistCard(p, i)}
+        {/each}
+      {:else}
         {#each { length: 5 } as _}
           <div class="card skel"><span class="art"></span><span class="sk-line"></span><span class="sk-line sm"></span></div>
         {/each}
-      </div>
-    {:else}
-      <div class="shelf">
-        {#each feed.playlists.slice(0, 5) as p, i (p.id)}
-          {@render playlistCard(p, i)}
-        {/each}
-      </div>
-    {/if}
+      {/if}
+    </div>
   </section>
 
-  {#if !feed || feed.newSongs.length}
+  {#if !feed}
     <section>
-      <div class="sec-head">
-        <h2>最新音乐</h2>
-        {#if feed?.newSongs.length}
-          <button class="btn plain" onclick={() => playNew(0)}>播放全部</button>
-        {/if}
+      <div class="sec-head"><h2>最新音乐</h2></div>
+      <div class="songs">
+        {#each { length: 9 } as _}
+          <div class="song skel"><span class="s-art"></span><span class="s-txt"><span class="sk-line"></span><span class="sk-line sm"></span></span></div>
+        {/each}
       </div>
-      {#if !feed || app.homeLoading}
-        <div class="songs">
-          {#each { length: 9 } as _}
-            <div class="song skel"><span class="s-art"></span><span class="s-txt"><span class="sk-line"></span><span class="sk-line sm"></span></span></div>
-          {/each}
+    </section>
+  {:else}
+    {#if feed.newSongs.length}
+      <section>
+        <div class="sec-head">
+          <h2>最新音乐</h2>
+          <button class="btn plain" onclick={() => playNew(0)}>播放全部</button>
         </div>
-      {:else}
         <div class="songs">
-          {#each feed.newSongs.slice(0, 9) as t, i (t.id)}
+          {#each feed.newSongs.slice(0, 9) as t, i (`${t.source}:${t.id}`)}
             {@render songCell(t, i)}
           {/each}
         </div>
-      {/if}
-    </section>
+      </section>
+    {/if}
+    {#if feed.charts.length}
+      <section>
+        <div class="sec-head"><h2>排行榜</h2></div>
+        <div class="shelf">
+          {#each feed.charts.slice(0, 5) as c, i (`${c.source}:${c.id}`)}
+            {@render playlistCard(c, i)}
+          {/each}
+        </div>
+      </section>
+    {/if}
   {/if}
-
-  <section>
-    <div class="sec-head"><h2>排行榜</h2></div>
-    <div class="shelf charts">
-      {#each charts.slice(0, 5) as c, i (c.id)}
-        {@render playlistCard(c, i)}
-      {/each}
-    </div>
-  </section>
 </div>
 
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
-  <button class="card" style:--d="{Math.min(i, 10) * 22}ms" onclick={() => app.openCollection(p.kind || 'playlist', String(p.id), undefined, p.source)}>
+  <button class="card" style:--d="{Math.min(i, 8) * 24}ms" onclick={() => app.openCollection(p.kind || 'playlist', String(p.id), undefined, p.source)}>
     <span class="art">
-      {#if p.cover}<img use:fade src={img(p.cover, 200)} alt="" decoding="async" />{/if}
+      {#if p.cover}<img use:fade src={img(p.cover, 220)} alt="" decoding="async" />{/if}
       {#if app.source === 'all'}<span class="src-tag">{sourceShort(p.source)}</span>{/if}
       <span class="play-badge" aria-hidden="true"><Icon name="play" /></span>
     </span>
@@ -117,7 +114,7 @@
 {/snippet}
 
 {#snippet songCell(t: Track, i: number)}
-  {@const active = t.id === currentId}
+  {@const active = `${t.source}:${t.id}` === currentKey}
   <div class="song" class:active class:off={t.availability === 'none'}>
     <button class="s-main" onclick={() => playNew(i)}>
       <span class="s-art">
@@ -133,12 +130,9 @@
         </span>
       </span>
     </button>
-    <button
-      class="icon-btn dl"
-      onclick={() => app.download([t], t.name, { subtitle: artists(t), cover: t.cover })}
-      title="下载"
-      aria-label="下载"><Icon name="download" /></button
-    >
+    <button class="icon-btn dl" onclick={() => app.download([t], t.name, { subtitle: artists(t), cover: t.cover })} title="下载" aria-label="下载">
+      <Icon name="download" />
+    </button>
   </div>
 {/snippet}
 
@@ -148,39 +142,15 @@
   }
   .page-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    padding: 4px 0 14px;
-    border-bottom: 0.5px solid var(--line);
+    gap: 12px;
+    padding: 6px 0 16px;
   }
   h1 {
     margin: 0;
-    font: 700 32px/1.15 var(--font-display);
+    font: 700 30px/1.1 var(--font-display);
     letter-spacing: -0.028em;
-  }
-  .tabs {
-    display: inline-flex;
-    padding: 3px;
-    border-radius: 9px;
-    background: var(--bg-2);
-    gap: 2px;
-  }
-  .tabs button {
-    height: 26px;
-    padding: 0 12px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--fg-2);
-    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
-  }
-  .tabs button:hover {
-    color: var(--fg);
-  }
-  .tabs button.on {
-    background: var(--bg-elev);
-    color: var(--fg);
-    box-shadow: var(--shadow-sm);
   }
   .src-tag {
     position: absolute;
@@ -232,9 +202,7 @@
     overflow: hidden;
     background: var(--bg-2);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px var(--line);
-    transition:
-      transform var(--t) var(--ease),
-      box-shadow var(--t) var(--ease);
+    transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
   }
   .card:hover .art {
     transform: translateY(-2px);
@@ -262,9 +230,7 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
     opacity: 0;
     transform: scale(0.88);
-    transition:
-      opacity var(--t-fast) var(--ease),
-      transform var(--t) var(--ease);
+    transition: opacity var(--t-fast) var(--ease), transform var(--t) var(--ease-spring);
   }
   .play-badge :global(svg) {
     width: 15px;
@@ -430,12 +396,9 @@
     margin-top: 0;
   }
 
-  @media (max-width: 960px) {
+  @media (max-width: 960px) and (min-width: 641px) {
     .shelf {
       grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-    .shelf > :nth-child(n + 9) {
-      display: none;
     }
     .songs {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -444,9 +407,22 @@
   @media (max-width: 640px) {
     .page-head {
       flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-      padding-bottom: 12px;
+      align-items: stretch;
+      gap: 12px;
+      padding: 2px 0 12px;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    .page-head .seg-ctl {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+    }
+    .page-head .seg-ctl button {
+      padding: 0 4px;
+    }
+    section {
+      margin-top: 26px;
     }
     .shelf {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -454,15 +430,22 @@
     }
     .songs {
       grid-template-columns: 1fr;
+      gap: 0;
     }
-    .tabs {
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      text-align: center;
+    .play-badge {
+      display: none;
     }
-    .tabs button {
-      padding: 0 4px;
+    .song {
+      padding-right: 0;
+    }
+    .dl {
+      opacity: 1;
+    }
+    .s-main {
+      height: 58px;
+    }
+    .card:active .art {
+      transform: scale(0.96);
     }
   }
 </style>

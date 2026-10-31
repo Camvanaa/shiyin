@@ -3,7 +3,8 @@
   import Icon from './Icon.svelte';
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
-  import { artists, duration, img, sourceShort } from '../lib/format';
+  import { artists, duration, img, sourceShort, trackLink } from '../lib/format';
+  import { toast } from '../lib/toast.svelte';
   import type { Track } from '../lib/types';
 
   let {
@@ -37,7 +38,7 @@
   let end = $state(40);
 
   const visible = $derived(tracks.slice(start, end));
-  const currentId = $derived(player.current?.id);
+  const currentKey = $derived(player.current ? `${player.current.source}:${player.current.id}` : '');
 
   function measure() {
     if (!host || !scroller) return;
@@ -91,9 +92,14 @@
   });
 
   let menu = $state<{ x: number; y: number; t: Track } | null>(null);
+  const isMobile = () => matchMedia('(max-width: 760px)').matches;
   function openMenu(e: MouseEvent, t: Track) {
     e.preventDefault();
     e.stopPropagation();
+    if (isMobile()) {
+      menu = { x: 0, y: 0, t };
+      return;
+    }
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.type === 'contextmenu' ? e.clientX : r.right;
     const y = e.type === 'contextmenu' ? e.clientY : r.bottom + 4;
@@ -105,9 +111,9 @@
 
 <div class="list" bind:this={host} style:height="{tracks.length * ROW}px" role="list">
   <div class="window" style:transform="translateY({start * ROW}px)">
-    {#each visible as t, i (t.id)}
+    {#each visible as t, i (t.source + ':' + t.id)}
       {@const idx = start + i}
-      {@const active = t.id === currentId}
+      {@const active = `${t.source}:${t.id}` === currentKey}
       <div
         class="row"
         class:active
@@ -173,7 +179,15 @@
 
 {#if menu}
   {@const t = menu.t}
+  <div class="menu-scrim" role="presentation"></div>
   <div class="menu" style:left="{menu.x}px" style:top="{menu.y}px" role="menu">
+    <div class="menu-head">
+      <img src={img(t.cover, 44)} alt="" width="40" height="40" decoding="async" />
+      <div class="mh-txt">
+        <div class="ellipsis">{t.name}</div>
+        <div class="muted ellipsis">{artists(t)}</div>
+      </div>
+    </div>
     <button role="menuitem" onclick={() => player.play(t)}><Icon name="play" />立即播放</button>
     <button role="menuitem" onclick={() => player.playNext(t)}><Icon name="queue" />下一首播放</button>
     <button role="menuitem" onclick={() => player.enqueue([t])}><Icon name="plus" />添加到播放列表</button>
@@ -188,17 +202,9 @@
     <button role="menuitem" onclick={() => (app.setSource('all'), app.search(`${t.name} ${artists(t)}`))}>
       <Icon name="search" />在全部音源中搜索
     </button>
-    <button
-      role="menuitem"
-      onclick={() =>
-        navigator.clipboard?.writeText(
-          t.source === 'qq'
-            ? `https://y.qq.com/n/ryqq/songDetail/${t.id}`
-            : t.source === 'kuwo'
-              ? `https://www.kuwo.cn/play_detail/${t.id}`
-              : `https://music.163.com/song?id=${t.id}`,
-        )}><Icon name="link" />复制链接</button
-    >
+    <button role="menuitem" onclick={() => navigator.clipboard?.writeText(trackLink(t)).then(() => toast.info('已复制链接'))}>
+      <Icon name="link" />复制链接
+    </button>
   </div>
 {/if}
 
@@ -461,46 +467,131 @@
     margin: 4px 8px;
   }
 
-  @media (max-width: 760px) {
-    .row {
-      grid-template-columns: auto minmax(0, 1fr) 44px 64px;
-    }
-    .row:has(.check) {
-      grid-template-columns: 28px auto minmax(0, 1fr) 44px 64px;
-    }
-    .album {
-      display: none;
-    }
-    .actions {
-      opacity: 1;
-    }
+  .menu-scrim {
+    display: none;
   }
+  .menu-head {
+    display: none;
+  }
+
   @media (max-width: 760px) {
     .row {
       grid-template-columns: auto minmax(0, 1fr) 44px;
       gap: 10px;
-      padding: 0 4px;
+      padding: 0 2px 0 4px;
+      height: 58px;
     }
     .row:has(.check) {
       grid-template-columns: 28px auto minmax(0, 1fr) 44px;
     }
+    .row:hover {
+      background: none;
+    }
+    .row:active {
+      background: var(--press);
+    }
+    .row::after {
+      left: 56px;
+      right: 0;
+    }
+    .album,
     .dur {
       display: none;
     }
-    .actions {
+    .play-overlay {
+      display: none;
+    }
+    .row.active .play-overlay {
+      display: grid;
+      opacity: 1;
+    }
+    .num {
       opacity: 1 !important;
+    }
+    .row.active .num {
+      opacity: 0 !important;
+    }
+    .actions {
+      opacity: 1;
       gap: 0;
     }
     .actions .icon-btn:first-child {
-      display: none; /* 移动端隐藏下载快捷按钮，收纳在更多菜单里 */
+      display: none;
     }
     .actions .icon-btn {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
     }
-    .title {
-      cursor: pointer;
+    .name {
+      font-size: 15px;
+    }
+
+    /* 移动端：底部动作面板 */
+    .menu-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 69;
+      background: var(--scrim);
+      animation: fade var(--t) var(--ease) both;
+    }
+    .menu {
+      left: 8px !important;
+      right: 8px;
+      top: auto !important;
+      bottom: calc(8px + var(--sab));
+      z-index: 70;
+      min-width: 0;
+      padding: 6px;
+      border-radius: var(--r-xl);
+      animation: menu-up var(--t-slow) var(--ease) both;
+      transform-origin: center bottom;
+    }
+    @keyframes menu-up {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+    }
+    .menu-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px 10px;
+      margin-bottom: 4px;
+      border-bottom: 0.5px solid var(--line);
+    }
+    .menu-head img {
+      border-radius: 6px;
+      background: var(--bg-3);
+      flex: none;
+    }
+    .mh-txt {
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .mh-txt .muted {
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .menu button {
+      height: 46px;
+      font-size: 15px;
+      padding: 0 12px;
+      gap: 14px;
+      border-radius: var(--r);
+    }
+    .menu button:hover {
+      background: none;
+      color: inherit;
+    }
+    .menu button:active {
+      background: var(--press);
+    }
+    .menu :global(svg) {
+      width: 18px;
+      height: 18px;
     }
   }
-
 </style>

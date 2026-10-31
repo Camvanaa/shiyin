@@ -11,7 +11,7 @@
     <div
       class="toast {t.kind}"
       animate:flip={{ duration: 280, easing: cubicOut }}
-      in:fly={{ y: 16, duration: 320, easing: cubicOut }}
+      in:fly={{ y: 12, duration: 360, easing: cubicOut }}
       out:fly={{ y: 8, duration: 200, opacity: 0 }}
     >
       <span class="ico">
@@ -35,6 +35,7 @@
     bottom: calc(var(--playbar) + 16px);
     transform: translateX(-50%);
     z-index: 90;
+    width: max-content;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -89,5 +90,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .stack {
+      top: calc(var(--sat) + 12px);
+      bottom: auto;
+    }
   }
 </style>

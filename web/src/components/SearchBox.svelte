@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import { app } from '../lib/app.svelte';
   import { forget, suggest, type HistoryEntry } from '../lib/history.svelte';
-  import { img } from '../lib/format';
+  import { img, LINK_RE } from '../lib/format';
 
   let value = $state('');
   let focused = $state(false);
@@ -11,7 +11,7 @@
 
   const items = $derived(focused ? suggest(value) : []);
   const open = $derived(focused && items.length > 0);
-  const looksLikeLink = $derived(/music\.163\.com|163cn\.tv/.test(value));
+  const looksLikeLink = $derived(LINK_RE.test(value));
 
   function submit(q = value) {
     if (!q.trim()) return;
@@ -59,7 +59,7 @@
   // 粘贴链接后自动解析
   function onPaste(e: ClipboardEvent) {
     const text = e.clipboardData?.getData('text') ?? '';
-    if (/music\.163\.com|163cn\.tv/.test(text)) {
+    if (LINK_RE.test(text)) {
       e.preventDefault();
       submit(text.trim());
     }

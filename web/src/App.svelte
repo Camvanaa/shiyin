@@ -16,9 +16,9 @@
   import MobilePlayerPill from './components/MobilePlayerPill.svelte';
   import MobileSearch from './components/MobileSearch.svelte';
 
-  import { app } from './lib/app.svelte';
+  import { app, SOURCE_TABS } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
-  import { year } from './lib/format';
+  import { collectionKindLabel, sourceName, year } from './lib/format';
 
   let scroller = $state<HTMLElement>();
 
@@ -55,16 +55,20 @@
   }
 
   const v = $derived(app.view);
-  const mobileHeaderTitle = $derived.by(() => {
-    if (v.kind === 'home') return '发现';
-    if (v.kind === 'search') return '搜索';
-    if (v.kind === 'song') return '歌曲详情';
-    if (v.kind === 'collection') {
-      return v.data.kind === 'album' ? '专辑' : v.data.kind === 'toplist' ? '排行榜' : '歌单';
+  const showBack = $derived(v.kind !== 'home' && v.kind !== 'search-home');
+  const mobileTitle = $derived.by(() => {
+    switch (v.kind) {
+      case 'home':
+        return '发现';
+      case 'search-home':
+      case 'search':
+        return '搜索';
+      case 'song':
+        return '歌曲';
+      case 'collection':
+        return collectionKindLabel(v.data.kind);
     }
-    return '拾音';
   });
-
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -72,35 +76,28 @@
 <div class="shell" class:has-player={!!player.current}>
   <header class="top" class:scrolled>
     <div class="top-left">
-      {#if v.kind !== 'home'}
+      {#if showBack}
         <button class="icon-btn" onclick={() => app.back()} aria-label="返回" title="返回"><Icon name="back" stroke={2} /></button>
       {/if}
       <button class="brand" onclick={() => app.home()} aria-label="首页">
         <img src="/icon.svg" alt="" width="22" height="22" />
-        <span class="desktop-only">拾音</span>
+        <span class="brand-name">拾音</span>
       </button>
     </div>
-    <div class="top-title mobile-only ellipsis">
-      {mobileHeaderTitle}
+
+    <div class="top-mid">
+      <div class="desktop-only"><SearchBox /></div>
+      <div class="mobile-only"><span class="top-title">{mobileTitle}</span></div>
     </div>
-    <div class="top-mid desktop-only">
-      <SearchBox />
-    </div>
-    <div class="top-right mobile-only">
-      <button class="avatar" onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
-        {#if app.account}
-          <img src={app.account.avatar + '?param=64y64'} alt="" width="26" height="26" />
-        {:else}
-          <Icon name="user" size={17} />
-        {/if}
-      </button>
-    </div>
-    <div class="top-right desktop-only">
-      <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
-        <Icon name="download" />
-        {#if app.activeJobs}<span class="count tabular">{app.activeJobs}</span>{/if}
-      </button>
-      <button class="icon-btn" onclick={() => (app.sheet = 'settings')} aria-label="设置" title="设置 (⌘,)"><Icon name="settings" /></button>
+
+    <div class="top-right">
+      <div class="desktop-only">
+        <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
+          <Icon name="download" />
+          {#if app.activeJobs}<span class="count tabular">{app.activeJobs}</span>{/if}
+        </button>
+        <button class="icon-btn" onclick={() => (app.sheet = 'settings')} aria-label="设置" title="设置 (⌘,)"><Icon name="settings" /></button>
+      </div>
       <button class="avatar" onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
         {#if app.account}
           <img src={app.account.avatar + '?param=64y64'} alt="" width="28" height="28" />
@@ -124,41 +121,39 @@
         <div class="view">
           {#if v.kind === 'home'}
             <Home />
+          {:else if v.kind === 'search-home'}
+            <MobileSearch />
           {:else if v.kind === 'search'}
-            {#if !v.q}
-              <MobileSearch />
-            {:else}
-              <CollectionView
-                kind="search"
-                eyebrow="搜索结果"
-                title={`“${v.q}”`}
-                tracks={v.tracks}
-                {scroller}
-                onreachend={() => app.searchMore()}
-              >
-                {#snippet subhead()}
-                  <div class="src-tabs" role="tablist" aria-label="切换搜索音源">
-                    {#each [['all', '全部音源'], ['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as [id, label]}
-                      <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
-                        {label}
-                      </button>
-                    {/each}
-                  </div>
-                {/snippet}
-                {#snippet footer()}
-                  <div class="more">
-                    {#if app.loading}<span class="spinner"></span>{:else if v.done}<span class="faint">没有更多了</span>{/if}
-                  </div>
-                {/snippet}
-              </CollectionView>
-            {/if}
+            <CollectionView
+              kind="search"
+              eyebrow="搜索结果"
+              title={v.q}
+              tracks={v.tracks}
+              {scroller}
+              onreachend={() => app.searchMore()}
+            >
+              {#snippet subhead()}
+                <div class="seg-ctl src-tabs" role="tablist" aria-label="切换搜索音源">
+                  {#each SOURCE_TABS as [id, label] (id)}
+                    <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
+                      {label}
+                    </button>
+                  {/each}
+                </div>
+              {/snippet}
+              {#snippet footer()}
+                <div class="more">
+                  {#if app.loading}<span class="spinner"></span>{:else if v.done}<span class="faint">没有更多了</span>{/if}
+                </div>
+              {/snippet}
+            </CollectionView>
           {:else if v.kind === 'song'}
             <SongView track={v.track} />
           {:else if v.kind === 'collection'}
             {@const c = v.data}
             <CollectionView
               kind="collection"
-              eyebrow={`${c.source === 'qq' ? 'QQ音乐' : c.source === 'kuwo' ? '酷我音乐' : '网易云'} · ${c.kind === 'album' ? '专辑' : c.kind === 'toplist' ? '排行榜' : '歌单'}`}
+              eyebrow={`${sourceName(c.source)} · ${collectionKindLabel(c.kind)}`}
               title={c.name}
               owner={c.owner}
               meta={c.kind === 'album' ? year(c.publishTime) : ''}
@@ -174,9 +169,7 @@
     </div>
   </main>
 
-  <div class="desktop-only">
-    <PlayerBar />
-  </div>
+  <div class="desktop-only"><PlayerBar /></div>
   <div class="mobile-only">
     <MobilePlayerPill />
     <MobileTabBar />
@@ -232,11 +225,27 @@
   }
   .top-mid {
     min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .top-mid > :global(*) {
+    width: 100%;
+  }
+  .top-title {
+    display: block;
+    text-align: center;
+    font: 600 16px var(--font-display);
+    letter-spacing: -0.01em;
+    color: var(--fg);
   }
   .top-right {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 4px;
+  }
+  .top-right .desktop-only {
+    display: flex;
     gap: 4px;
   }
   .dl {
@@ -255,7 +264,7 @@
     font-size: 10px;
     font-weight: 600;
     line-height: 15px;
-    animation: pop var(--t) var(--ease) both;
+    animation: pop var(--t) var(--ease-spring) both;
   }
   @keyframes pop {
     from {
@@ -291,6 +300,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-gutter: stable;
+    overscroll-behavior-y: contain;
   }
   .page {
     max-width: var(--content);
@@ -314,27 +324,7 @@
     animation: rise var(--t) var(--ease-out);
   }
   .src-tabs {
-    display: inline-flex;
-    gap: 6px;
     margin-top: 12px;
-    flex-wrap: wrap;
-  }
-  .src-tabs button {
-    height: 28px;
-    padding: 0 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 500;
-    background: var(--bg-2);
-    color: var(--fg-2);
-    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
-  }
-  .src-tabs button:hover {
-    color: var(--fg);
-  }
-  .src-tabs button.on {
-    background: var(--fg);
-    color: var(--bg);
   }
   .more {
     display: grid;
@@ -344,49 +334,34 @@
   }
 
   @media (max-width: 640px) {
+    .shell {
+      grid-template-rows: 48px minmax(0, 1fr);
+    }
     .top {
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 6px;
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      gap: 8px;
       padding: 0 8px;
     }
-    .brand span {
+    .top-left {
+      justify-content: flex-start;
+    }
+    .brand-name {
       display: none;
     }
-    .top-right {
-      gap: 2px;
+    .top-right .desktop-only {
+      display: none;
+    }
+    .avatar {
+      margin-left: 0;
+    }
+    main {
+      scrollbar-gutter: auto;
     }
     .page {
-      padding: 6px 10px calc(24px + var(--sab));
+      padding: 4px 12px calc(var(--tabbar) + var(--sab) + 24px);
+    }
+    .has-player .page {
+      padding-bottom: calc(var(--tabbar) + var(--sab) + 56px + 24px);
     }
   }
-  .desktop-only {
-    display: flex;
-  }
-  .mobile-only {
-    display: none;
-  }
-
-  @media (max-width: 640px) {
-    .desktop-only {
-      display: none !important;
-    }
-    .mobile-only {
-      display: flex !important;
-    }
-    .top {
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 10px;
-      padding: 0 10px;
-      height: 48px;
-    }
-    .top-title {
-      font: 600 16px var(--font-display);
-      text-align: center;
-      color: var(--fg);
-    }
-    .page {
-      padding: 6px 12px calc(var(--playbar) + 60px + var(--sab));
-    }
-  }
-
 </style>

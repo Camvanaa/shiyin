@@ -28,7 +28,7 @@
   {:else}
     <div class="count muted">{player.queue.length} 首</div>
     <div bind:this={box}>
-      {#each player.queue as t, i (t.id)}
+      {#each player.queue as t, i (t.source + ':' + t.id)}
         <div class="row" class:cur={i === player.index}>
           <button class="main" onclick={() => player.playAt(i)}>
             <img use:fade src={img(t.cover, 36)} alt="" width="36" height="36" loading="lazy" decoding="async" />
@@ -114,5 +114,18 @@
   .rm :global(svg) {
     width: 14px;
     height: 14px;
+  }
+  @media (max-width: 640px) {
+    .main {
+      height: 58px;
+    }
+    .rm {
+      opacity: 1;
+      width: 40px;
+      height: 40px;
+    }
+    .name {
+      font-size: 15px;
+    }
   }
 </style>

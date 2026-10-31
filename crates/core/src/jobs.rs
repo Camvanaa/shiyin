@@ -303,17 +303,17 @@ impl JobManager {
                 Some((job.items[idx].clone(), job.opts.clone(), job.snap.dir.clone()))
             });
             let Some(Some((item, opts, dir))) = prepared else { return };
-        let src = match self.inner.sources.for_track(&item.track) {
-            Ok(s) => s.clone(),
-            Err(e) => {
-                self.with_job(id, |job| {
-                    job.snap.items[idx].status = Status::Failed;
-                    job.snap.items[idx].error = Some(e.to_string());
-                });
-                self.bump();
-                return;
-            }
-        };
+            let src = match self.inner.sources.for_track(&item.track) {
+                Ok(s) => s.clone(),
+                Err(e) => {
+                    self.with_job(id, |job| {
+                        job.snap.items[idx].status = Status::Failed;
+                        job.snap.items[idx].error = Some(e.to_string());
+                    });
+                    self.bump();
+                    return;
+                }
+            };
             self.bump();
 
             let mut last = Instant::now();

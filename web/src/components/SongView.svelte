@@ -5,7 +5,8 @@
   import { player } from '../lib/player.svelte';
   import { api } from '../lib/transport';
   import { settings } from '../lib/settings.svelte';
-  import { artists, bytes, duration, img } from '../lib/format';
+  import { artists, bytes, duration, img, trackLink } from '../lib/format';
+  import { toast } from '../lib/toast.svelte';
   import { parseLyric } from '../lib/lrc';
   import { LEVELS, type Track } from '../lib/types';
 
@@ -55,7 +56,7 @@
       </button>
       <button
         class="icon-btn"
-        onclick={() => navigator.clipboard?.writeText(`https://music.163.com/song?id=${track.id}`)}
+        onclick={() => navigator.clipboard?.writeText(trackLink(track)).then(() => toast.info('已复制链接'))}
         title="复制链接"
         aria-label="复制链接"><Icon name="link" /></button
       >
@@ -194,12 +195,36 @@
   @media (max-width: 760px) {
     .song {
       flex-direction: column;
-      align-items: flex-start;
-      gap: 24px;
+      align-items: center;
+      text-align: center;
+      gap: 22px;
+      padding-top: 8px;
     }
     .art {
-      width: 200px;
-      height: 200px;
+      width: min(68vw, 260px);
+      height: auto;
+      aspect-ratio: 1;
+    }
+    .info {
+      width: 100%;
+    }
+    .facts {
+      justify-content: center;
+      gap: 20px;
+    }
+    .cta {
+      justify-content: center;
+    }
+    .cta .btn.lg {
+      flex: 1;
+      max-width: 180px;
+    }
+    .lyric {
+      max-width: none;
+      text-align: center;
+    }
+    h1 {
+      font-size: 26px;
     }
   }
 </style>

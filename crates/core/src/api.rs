@@ -488,14 +488,4 @@ impl Netease {
         }
         Ok(feed)
     }
-
-    /// 跟随 163cn.tv 短链一次重定向。
-    pub async fn expand_short_link(&self, url: &str) -> Result<String> {
-        let resp = self.http.get(url).timeout(Duration::from_secs(10)).send().await?;
-        resp.headers()
-            .get(reqwest::header::LOCATION)
-            .and_then(|l| l.to_str().ok())
-            .map(str::to_owned)
-            .ok_or_else(|| Error::Invalid("短链接无法解析".into()))
-    }
 }

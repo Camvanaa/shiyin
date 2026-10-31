@@ -3,8 +3,11 @@ import { img } from './format';
 const cache = new Map<string, string>();
 
 /** 从封面提取主色，返回 "r g b"。失败时返回空字符串。 */
+/** 已知带 CORS 头、允许 canvas 读取的封面域名 */
+const CORS_OK = /\.126\.net\//;
+
 export function extractTint(url: string): Promise<string> {
-  if (!url) return Promise.resolve('');
+  if (!url || !CORS_OK.test(url)) return Promise.resolve('');
   const hit = cache.get(url);
   if (hit !== undefined) return Promise.resolve(hit);
   return new Promise((resolve) => {

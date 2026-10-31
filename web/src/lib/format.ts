@@ -38,3 +38,22 @@ export function sourceName(id: string): string {
 export function sourceShort(id: string): string {
   return id === 'qq' ? 'QQ' : id === 'kuwo' ? '酷我' : '网易';
 }
+
+/** 歌曲在原平台的网页链接 */
+export function trackLink(t: { id: string; source: string }): string {
+  switch (t.source) {
+    case 'qq':
+      return `https://y.qq.com/n/ryqq/songDetail/${t.id}`;
+    case 'kuwo':
+      return `https://www.kuwo.cn/play_detail/${t.id}`;
+    default:
+      return `https://music.163.com/song?id=${t.id}`;
+  }
+}
+
+/** 识别粘贴内容是否为支持的平台链接 */
+export const LINK_RE = /music\.163\.com|163cn\.tv|y\.qq\.com|c\.y\.qq\.com|kuwo\.cn/;
+
+export function collectionKindLabel(kind: 'playlist' | 'album' | 'toplist'): string {
+  return kind === 'album' ? '专辑' : kind === 'toplist' ? '排行榜' : '歌单';
+}

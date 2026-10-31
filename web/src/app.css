@@ -31,16 +31,25 @@
   --r-lg: 14px;
   --r-xl: 20px;
 
+  /* 运动曲线：统一使用 Apple 风格的快出慢入，弹性曲线仅用于弹层进入 */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
   --t-fast: 140ms;
   --t: 240ms;
   --t-slow: 420ms;
+  --t-sheet: 480ms;
 
   --topbar: 52px;
   --playbar: 72px;
+  --tabbar: 50px;
   --content: 1080px;
+
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
   color-scheme: light;
 }
@@ -111,6 +120,13 @@ body {
   overscroll-behavior: none;
 }
 
+body {
+  padding-top: var(--sat);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  -webkit-touch-callout: none;
+}
+
 #app {
   height: 100%;
 }
@@ -130,6 +146,7 @@ button {
   background: none;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 a {
@@ -139,6 +156,11 @@ a {
 
 img {
   display: block;
+}
+
+input,
+textarea {
+  -webkit-touch-callout: default;
 }
 
 /* 封面加载完成后淡入，未加载时显示底色 */
@@ -322,6 +344,52 @@ img.fade.ok {
   animation: spin 0.8s linear infinite;
 }
 
+/* iOS 风格分段控件 */
+.seg-ctl {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--bg-2);
+  gap: 2px;
+}
+.seg-ctl button {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-2);
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.seg-ctl button:hover {
+  color: var(--fg);
+}
+.seg-ctl button.on {
+  background: var(--bg-elev);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 桌面 / 移动互斥显示 */
+.desktop-only {
+  display: contents;
+}
+.mobile-only {
+  display: none;
+}
+@media (max-width: 640px) {
+  .desktop-only {
+    display: none;
+  }
+  .mobile-only {
+    display: contents;
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -331,12 +399,18 @@ img.fade.ok {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 }
 
 @keyframes fade {
   from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
     opacity: 0;
   }
 }
@@ -350,26 +424,4 @@ img.fade.ok {
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* 移动端安全区与触控手势优化 */
-:root {
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-}
-
-body {
-  padding-top: var(--sat);
-  padding-left: var(--sal);
-  padding-right: var(--sar);
-}
-
-/* 移动端禁用双击缩放与长按呼出菜单 */
-* {
-  -webkit-touch-callout: none;
-}
-input, textarea {
-  -webkit-touch-callout: default;
 }

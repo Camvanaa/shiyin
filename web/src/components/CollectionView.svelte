@@ -289,18 +289,54 @@
   @media (max-width: 760px) {
     .head {
       flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 18px;
+      padding: 8px 0 20px;
+    }
+    .head.noart {
       align-items: flex-start;
-      gap: 20px;
+      text-align: left;
+      padding-top: 4px;
     }
     .art {
-      width: 160px;
-      height: 160px;
+      width: min(60vw, 220px);
+      height: auto;
+      aspect-ratio: 1;
+      border-radius: var(--r-xl);
+    }
+    .info {
+      width: 100%;
     }
     h1 {
       font-size: 24px;
     }
+    .owner {
+      font-size: 16px;
+    }
+    .desc {
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .head:not(.noart) .cta {
+      justify-content: center;
+    }
+    .cta .btn.lg {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0 12px;
+      height: 42px;
+    }
+    .cta .icon-btn {
+      width: 42px;
+      height: 42px;
+      background: var(--bg-2);
+    }
+    .toolbar {
+      height: 44px;
+    }
     .filter {
-      width: 150px;
+      width: 140px;
     }
   }
 </style>

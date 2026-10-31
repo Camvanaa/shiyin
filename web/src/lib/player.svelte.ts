@@ -13,8 +13,10 @@ class Player {
   index = $state(-1);
   playing = $state(false);
   loading = $state(false);
-  /** 秒 */
+  /** 秒，约 10Hz 更新，用于进度条与时间显示 */
   time = $state(0);
+  /** 秒，逐帧更新，仅供歌词同步使用 */
+  frameTime = $state(0);
   duration = $state(0);
   buffered = $state(0);
   lyric = $state<LrcLine[]>([]);
@@ -43,7 +45,7 @@ class Player {
     });
     a.addEventListener('pause', () => {
       this.playing = false;
-      this.time = a.currentTime;
+      this.time = this.frameTime = a.currentTime;
       this.#syncPosition();
     });
     a.addEventListener('waiting', () => (this.loading = true));
@@ -52,7 +54,7 @@ class Player {
     a.addEventListener('durationchange', () => (this.duration = isFinite(a.duration) ? a.duration : 0));
     // 播放时由 rAF 更新进度，暂停或后台时退回 timeupdate
     a.addEventListener('timeupdate', () => {
-      if (a.paused || document.hidden) this.time = a.currentTime;
+      if (a.paused || document.hidden) this.time = this.frameTime = a.currentTime;
     });
     a.addEventListener('seeked', () => this.#syncPosition());
     a.addEventListener('ratechange', () => this.#syncPosition());
@@ -64,8 +66,7 @@ class Player {
       if (!a.src || !this.current) return;
       this.loading = false;
       // 地址可能过期，丢弃缓存后重试一次
-      const key = `${this.current.source}:${this.current.id}:${settings.playLevel}`;
-      if (this.#urlCache.delete(key)) this.#load(true);
+      if (this.#urlCache.delete(this.#cacheKey(this.current))) this.#load(true);
       else toast.error('播放失败', this.current.name);
     });
     this.#audio = a;
@@ -73,14 +74,23 @@ class Player {
   }
 
   #raf = 0;
+  #lastTimeWrite = 0;
   #startTicker() {
     if (this.#raf) return;
-    const tick = () => {
+    const tick = (now: number) => {
       if (this.#audio.paused) {
         this.#raf = 0;
         return;
       }
-      if (!document.hidden) this.time = this.#audio.currentTime;
+      if (!document.hidden) {
+        const cur = this.#audio.currentTime;
+        // 歌词需要逐帧；进度条与时间文字 10Hz 足够，避免整棵组件树每帧重算
+        this.frameTime = cur;
+        if (now - this.#lastTimeWrite >= 100) {
+          this.#lastTimeWrite = now;
+          this.time = cur;
+        }
+      }
       this.#raf = requestAnimationFrame(tick);
     };
     this.#raf = requestAnimationFrame(tick);
@@ -110,7 +120,7 @@ class Player {
   matchedFrom = $state('');
 
   async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean; from: string }> {
-    const key = `${t.source}:${t.id}:${settings.playLevel}`;
+    const key = this.#cacheKey(t);
     const c = this.#urlCache.get(key);
     if (c && c.exp > Date.now()) return c;
     try {
@@ -135,7 +145,7 @@ class Player {
     try {
       const m = await api.matchPlayable(t.name, artists(t), t.source, settings.playLevel);
       const v = { url: m.url.url, level: m.url.level, trial: false, from: m.track.source, exp: Date.now() + 15 * 60_000 };
-      this.#urlCache.set(`${t.source}:${t.id}:${settings.playLevel}`, v);
+      this.#urlCache.set(this.#cacheKey(t), v);
       return v;
     } catch {
       return null;
@@ -150,7 +160,7 @@ class Player {
     this.#pendingSeek = null;
     this.loading = true;
     if (!keepTime) {
-      this.time = 0;
+      this.time = this.frameTime = 0;
       this.duration = t.duration / 1000;
       this.buffered = 0;
       this.lyric = [];
@@ -256,7 +266,7 @@ class Player {
       toast.error(`「${t.name}」暂无版权`, '无法播放');
       return;
     }
-    const i = this.queue.findIndex((x) => x.id === t.id);
+    const i = this.queue.findIndex((x) => x.id === t.id && x.source === t.source);
     if (i >= 0) {
       if (i === this.index) return this.toggle();
       this.index = i;
@@ -274,8 +284,8 @@ class Player {
   }
 
   enqueue(tracks: Track[]) {
-    const ids = new Set(this.queue.map((t) => t.id));
-    const add = tracks.filter((t) => !ids.has(t.id));
+    const ids = new Set(this.queue.map((t) => `${t.source}:${t.id}`));
+    const add = tracks.filter((t) => !ids.has(`${t.source}:${t.id}`));
     this.queue.push(...add);
     if (this.index < 0 && this.queue.length) {
       this.index = 0;
@@ -285,7 +295,7 @@ class Player {
   }
 
   playNext(t: Track) {
-    const i = this.queue.findIndex((x) => x.id === t.id);
+    const i = this.queue.findIndex((x) => x.id === t.id && x.source === t.source);
     if (i === this.index && i >= 0) return;
     if (i >= 0) {
       this.queue.splice(i, 1);
@@ -321,7 +331,7 @@ class Player {
     this.#audio.removeAttribute('src');
     this.#audio.load();
     this.index = -1;
-    this.time = 0;
+    this.time = this.frameTime = 0;
     this.duration = 0;
     this.lyric = [];
     this.expanded = false;
@@ -363,7 +373,7 @@ class Player {
       return void this.#refresh();
     }
     this.#audio.currentTime = Math.max(0, Math.min(sec, this.duration || sec));
-    this.time = this.#audio.currentTime;
+    this.time = this.frameTime = this.#audio.currentTime;
   }
 
   cycleRepeat() {
@@ -373,8 +383,12 @@ class Player {
   #pendingSeek: number | null = null;
   #refresh() {
     const t = this.current;
-    if (t) this.#urlCache.delete(`${t.id}:${settings.playLevel}`);
+    if (t) this.#urlCache.delete(this.#cacheKey(t));
     this.#load(true);
+  }
+
+  #cacheKey(t: Track) {
+    return `${t.source}:${t.id}:${settings.playLevel}`;
   }
 
   /** 音质设置变化后重新加载当前歌曲 */

@@ -4,12 +4,16 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::api::Netease;
 use crate::error::{Error, Result};
 use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, Resolved, SongUrl, Track};
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+
+/// 聚合请求时单个音源的最长等待时间。超时的音源结果被丢弃，不拖慢整体响应。
+const AGGREGATE_TIMEOUT: Duration = Duration::from_secs(8);
 
 pub trait Source: Send + Sync {
     fn id(&self) -> &'static str;
@@ -72,8 +76,26 @@ impl Sources {
         self.list.iter().find(|s| s.id() == id)
     }
 
+    /// 按 ID 取音源；空字符串回落到网易云。
+    pub fn pick(&self, id: &str) -> Result<&DynSource> {
+        let key = if id.is_empty() { "netease" } else { id };
+        self.get(key).ok_or_else(|| Error::Invalid(format!("未知音源：{key}")))
+    }
+
     pub fn for_track(&self, t: &Track) -> Result<&DynSource> {
-        self.get(&t.source).ok_or_else(|| Error::Invalid(format!("未知音源：{}", t.source)))
+        self.pick(&t.source)
+    }
+
+    /// 从持久化存储和环境变量恢复各音源凭证。
+    /// 网易云由调用方单独处理（走 `Netease::set_music_u`）。
+    pub fn restore_cookies(&self, load: impl Fn(&str) -> Option<String>) {
+        for src in &self.list {
+            if src.id() == "netease" {
+                continue;
+            }
+            let env_key = format!("{}_COOKIE", src.id().to_ascii_uppercase());
+            src.set_cookie(load(src.id()).or_else(|| std::env::var(env_key).ok()));
+        }
     }
 
     /// 依次让各音源识别链接；网易短链单独展开
@@ -86,24 +108,21 @@ impl Sources {
         }
         // 163cn.tv 短链需要联网展开后再次识别
         if text.contains("163cn.tv") {
-            if let Some(ne) = self.get("netease") {
-                if let Some(url) = crate::link::first_url(text) {
-                    let full = self.http_expand(url).await?;
-                    for s in &self.list {
-                        if let Some(r) = s.parse_link(&full) {
-                            return Ok(r);
-                        }
+            if let Some(url) = crate::link::first_url(text) {
+                let full = self.expand_short_link(url).await?;
+                for s in &self.list {
+                    if let Some(r) = s.parse_link(&full) {
+                        return Ok(r);
                     }
-                    let _ = ne;
                 }
             }
         }
         Ok(Resolved::Query(text.to_owned()))
     }
 
-    async fn http_expand(&self, url: &str) -> Result<String> {
+    async fn expand_short_link(&self, url: &str) -> Result<String> {
         let client = self.list[0].http();
-        let resp = client.get(url).timeout(std::time::Duration::from_secs(10)).send().await?;
+        let resp = client.get(url).timeout(Duration::from_secs(10)).send().await?;
         resp.headers()
             .get(reqwest::header::LOCATION)
             .and_then(|l| l.to_str().ok())
@@ -112,11 +131,18 @@ impl Sources {
     }
 
     /// 聚合搜索：并发请求各音源，结果交替穿插（避免单一平台占满前排）。
-    pub async fn search_all(&self, keywords: &str, limit: u32) -> Vec<Track> {
-        let per = (limit / self.list.len().max(1) as u32).max(8);
-        let lists = futures_util::future::join_all(
-            self.list.iter().map(|s| async move { s.search(keywords, per, 0).await.unwrap_or_default() }),
-        )
+    /// `offset` 为聚合层偏移，按音源数均分后传给各平台，实现"加载更多"。
+    pub async fn search_all(&self, keywords: &str, limit: u32, offset: u32) -> Vec<Track> {
+        let n = self.list.len().max(1) as u32;
+        let per = (limit / n).max(8);
+        let per_offset = offset / n;
+        let lists = futures_util::future::join_all(self.list.iter().map(|s| async move {
+            tokio::time::timeout(AGGREGATE_TIMEOUT, s.search(keywords, per, per_offset))
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .unwrap_or_default()
+        }))
         .await;
         interleave(lists)
     }
@@ -124,51 +150,67 @@ impl Sources {
     /// 首页内容：`source` 为 "all" 或空时聚合所有音源，否则只取指定音源。
     pub async fn home(&self, source: &str) -> Result<HomeFeed> {
         if !source.is_empty() && source != "all" {
-            let s = self.get(source).ok_or_else(|| Error::Invalid(format!("未知音源：{source}")))?;
-            return s.home().await;
+            return self.pick(source)?.home().await;
         }
-        let feeds = futures_util::future::join_all(
-            self.list.iter().map(|s| async move { s.home().await.unwrap_or_default() }),
-        )
+        let feeds = futures_util::future::join_all(self.list.iter().map(|s| async move {
+            tokio::time::timeout(AGGREGATE_TIMEOUT, s.home())
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .unwrap_or_default()
+        }))
         .await;
+        let mut playlists = Vec::new();
+        let mut charts = Vec::new();
+        let mut new_songs = Vec::new();
+        for f in feeds {
+            playlists.push(f.playlists);
+            charts.push(f.charts);
+            new_songs.push(f.new_songs);
+        }
         Ok(HomeFeed {
-            playlists: interleave(feeds.iter().map(|f| f.playlists.clone()).collect()),
-            charts: interleave(feeds.iter().map(|f| f.charts.clone()).collect()),
-            new_songs: interleave(feeds.into_iter().map(|f| f.new_songs).collect()),
+            playlists: interleave(playlists),
+            charts: interleave(charts),
+            new_songs: interleave(new_songs),
         })
     }
 
-    /// 在其它音源中按“歌名 + 歌手”寻找可播放的替代曲目（同音源失败时的换源兜底）。
+    /// 在其它音源中按"歌名 + 歌手"寻找可播放的替代曲目（同音源失败时的换源兜底）。
+    /// 各音源并发查找，取第一个成功的结果。
     pub async fn find_playable(&self, name: &str, artist: &str, skip_source: &str, level: &str) -> Option<(Track, SongUrl)> {
         let q = format!("{name} {artist}").trim().to_owned();
-        for s in &self.list {
-            if s.id() == skip_source {
-                continue;
-            }
-            let Ok(candidates) = s.search(&q, 5, 0).await else { continue };
-            for t in candidates.into_iter().filter(|t| t.availability != crate::model::Availability::None) {
-                if let Ok(u) = s.song_url(&t.id, level).await {
-                    if u.trial.is_none() {
-                        return Some((t, u));
+        let name_lc = name.trim().to_lowercase();
+        let tasks = self.list.iter().filter(|s| s.id() != skip_source).map(|s| {
+            let q = q.clone();
+            let name_lc = name_lc.clone();
+            async move {
+                let candidates = tokio::time::timeout(AGGREGATE_TIMEOUT, s.search(&q, 5, 0)).await.ok()?.ok()?;
+                // 优先歌名完全匹配的候选，避免换到翻唱或同名不同曲
+                let mut ranked: Vec<Track> = candidates
+                    .into_iter()
+                    .filter(|t| t.availability != crate::model::Availability::None)
+                    .collect();
+                ranked.sort_by_key(|t| if t.name.trim().to_lowercase() == name_lc { 0 } else { 1 });
+                for t in ranked {
+                    if let Ok(u) = tokio::time::timeout(AGGREGATE_TIMEOUT, s.song_url(&t.id, level)).await.ok()? {
+                        if u.trial.is_none() {
+                            return Some((t, u));
+                        }
                     }
                 }
+                None
             }
-        }
-        None
+        });
+        let results = futures_util::future::join_all(tasks).await;
+        results.into_iter().flatten().next()
     }
 }
 
+/// 多个列表交替穿插：a0 b0 c0 a1 b1 c1 ...
 fn interleave<T>(lists: Vec<Vec<T>>) -> Vec<T> {
+    let total: usize = lists.iter().map(Vec::len).sum();
     let max = lists.iter().map(Vec::len).max().unwrap_or(0);
-    let mut out = Vec::new();
-    for i in 0..max {
-        for l in &lists {
-            if let Some(v) = l.get(i) {
-                // safety: index valid; clone via index move below
-                let _ = v;
-            }
-        }
-    }
+    let mut out = Vec::with_capacity(total);
     let mut iters: Vec<_> = lists.into_iter().map(Vec::into_iter).collect();
     for _ in 0..max {
         for it in &mut iters {

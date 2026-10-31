@@ -23,8 +23,7 @@ struct Ctx {
 type R<T> = Result<T, String>;
 
 fn pick<'a>(s: &'a State<'a, Ctx>, source: &str) -> Result<&'a shiyin_core::DynSource, String> {
-    let key = if source.is_empty() { "netease" } else { source };
-    s.sources.get(key).ok_or_else(|| format!("未知音源：{key}"))
+    s.sources.pick(source).map_err(e)
 }
 
 fn e<E: ToString>(err: E) -> String {
@@ -53,7 +52,7 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
 #[tauri::command]
 async fn search(s: State<'_, Ctx>, q: String, limit: u32, offset: u32, source: String) -> R<Vec<Track>> {
     if source.is_empty() || source == "all" {
-        return Ok(s.sources.search_all(&q, limit).await);
+        return Ok(s.sources.search_all(&q, limit, offset).await);
     }
     pick(&s, &source)?.search(&q, limit, offset).await.map_err(e)
 }
@@ -292,12 +291,7 @@ pub fn run() {
             let api = Netease::new();
             api.set_music_u(store.load());
             let sources = Sources::new(api.clone());
-    for src in sources.list() {
-        if src.id() != "netease" {
-            let env_key = format!("{}_COOKIE", src.id().to_ascii_uppercase());
-            src.set_cookie(store.load_for(src.id()).or_else(|| std::env::var(env_key).ok()));
-        }
-    }
+            sources.restore_cookies(|id| store.load_for(id));
             let jobs = JobManager::new(sources.clone(), 3, None);
 
             // 任务变化推送给界面，限制为每 200ms 最多一次

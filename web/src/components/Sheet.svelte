@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
 
-  // 浮层：side = 右侧抽屉；center = 居中面板
+  // 浮层：桌面 side = 右侧抽屉 / 默认居中面板；移动端统一为底部抽屉
   let {
     open,
     onclose,
@@ -36,7 +36,7 @@
       const t = setTimeout(() => {
         mounted = false;
         closing = false;
-      }, 260);
+      }, 280);
       return () => clearTimeout(t);
     }
   });
@@ -47,15 +47,45 @@
       onclose();
     }
   }
+
+  // 移动端下滑关闭：只在头部区域起手，不干扰内容滚动
+  let dragY = $state(0);
+  let dragging = $state(false);
+  let startY = 0;
+  function dragStart(e: TouchEvent) {
+    if (!dismissible) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }
+  function dragMove(e: TouchEvent) {
+    if (!dragging) return;
+    dragY = Math.max(0, e.touches[0].clientY - startY);
+  }
+  function dragEnd() {
+    if (!dragging) return;
+    dragging = false;
+    if (dragY > 90) onclose();
+    dragY = 0;
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
 
 {#if mounted}
   <div class="scrim" class:closing onclick={() => dismissible && onclose()} role="presentation"></div>
-  <div class="sheet" class:side class:closing style:--w="{width}px" role="dialog" aria-modal="true" aria-label={title}>
-    <div class="sheet-grabber-wrap"><div class="sheet-grabber"></div></div>
-    <header>
+  <div
+    class="sheet"
+    class:side
+    class:closing
+    class:dragging
+    style:--w="{width}px"
+    style:--drag="{dragY}px"
+    role="dialog"
+    aria-modal="true"
+    aria-label={title}
+  >
+    <header role="presentation" ontouchstart={dragStart} ontouchmove={dragMove} ontouchend={dragEnd} ontouchcancel={dragEnd}>
+      <div class="grabber" aria-hidden="true"></div>
       <h2>{title}</h2>
       <div class="acts">
         {#if actions}{@render actions()}{/if}
@@ -133,12 +163,8 @@
       transform: translateX(calc(100% + 16px));
     }
   }
-  @keyframes fade-out {
-    to {
-      opacity: 0;
-    }
-  }
   header {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -146,6 +172,9 @@
     height: 56px;
     padding: 0 12px 0 20px;
     flex: none;
+  }
+  .grabber {
+    display: none;
   }
   h2 {
     margin: 0;
@@ -162,63 +191,59 @@
     min-height: 0;
     overflow: auto;
     padding: 0 20px 20px;
-  }
-  .sheet-grabber-wrap {
-    display: none;
+    overscroll-behavior: contain;
   }
 
   @media (max-width: 640px) {
-    .sheet-grabber-wrap {
-      display: flex;
-      justify-content: center;
-      padding: 8px 0 0;
+    .sheet,
+    .sheet.side {
+      left: 0;
+      right: 0;
+      top: auto;
+      bottom: 0;
+      width: 100%;
+      max-height: 88dvh;
+      border-radius: 20px 20px 0 0;
+      padding-bottom: var(--sab);
+      transform: translateY(var(--drag, 0px));
+      animation: bottom-in var(--t-sheet) var(--ease) both;
+      transition: transform var(--t) var(--ease);
     }
-    .sheet-grabber {
+    .sheet.dragging {
+      transition: none;
+    }
+    .sheet.closing,
+    .sheet.side.closing {
+      animation: bottom-out var(--t) var(--ease) both;
+    }
+    @keyframes bottom-in {
+      from {
+        transform: translateY(100%);
+      }
+    }
+    @keyframes bottom-out {
+      to {
+        transform: translateY(100%);
+      }
+    }
+    header {
+      height: 52px;
+      padding: 10px 10px 0 18px;
+      touch-action: none;
+    }
+    .grabber {
+      display: block;
+      position: absolute;
+      left: 50%;
+      top: 8px;
       width: 36px;
-      height: 4.5px;
+      height: 5px;
+      margin-left: -18px;
       border-radius: 99px;
       background: var(--line-2);
-    }
-
-    .sheet, .sheet.side {
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      top: auto !important;
-      width: 100% !important;
-      max-height: 88vh !important;
-      border-radius: 20px 20px 0 0 !important;
-      transform: none !important;
-      padding-bottom: var(--sab);
-      animation: bottom-sheet-in 320ms var(--ease-out) both !important;
-    }
-
-    .sheet.closing, .sheet.side.closing {
-      animation: bottom-sheet-out 240ms var(--ease) both !important;
-    }
-
-    @keyframes bottom-sheet-in {
-      from {
-        transform: translateY(100%) !important;
-      }
-      to {
-        transform: translateY(0) !important;
-      }
-    }
-
-    @keyframes bottom-sheet-out {
-      to {
-        transform: translateY(100%) !important;
-      }
-    }
-
-    header {
-      height: 48px;
-      padding: 0 14px 0 18px;
     }
     .content {
       padding: 0 16px 16px;
     }
   }
-
 </style>

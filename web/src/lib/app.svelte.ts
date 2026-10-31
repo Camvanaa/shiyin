@@ -7,11 +7,20 @@ import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track } fro
 
 export type View =
   | { kind: 'home' }
+  /** 移动端的搜索入口页（历史、榜单快捷方式），不发起请求 */
+  | { kind: 'search-home' }
   | { kind: 'search'; q: string; tracks: Track[]; done: boolean; offset: number }
   | { kind: 'song'; track: Track }
   | { kind: 'collection'; data: Collection };
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
+
+export const SOURCE_TABS: readonly [string, string][] = [
+  ['all', '全部'],
+  ['netease', '网易云'],
+  ['qq', 'QQ音乐'],
+  ['kuwo', '酷我'],
+];
 
 class AppState {
   view = $state<View>({ kind: 'home' });
@@ -108,7 +117,11 @@ class AppState {
   }
 
   #go(v: View, push = true) {
-    if (push && this.view.kind !== 'home') this.#backStack.push($state.snapshot(this.view) as View);
+    const cur = this.view;
+    // 搜索入口页是临时态，不进入返回栈
+    if (push && cur.kind !== 'home' && cur.kind !== 'search-home') {
+      this.#backStack.push($state.snapshot(cur) as View);
+    }
     if (this.#backStack.length > 20) this.#backStack.shift();
     this.canBack = this.#backStack.length > 0;
     this.view = v;
@@ -130,8 +143,16 @@ class AppState {
     this.#backStack = [];
     this.canBack = false;
     this.loading = false;
+    this.sheet = null;
     this.view = { kind: 'home' };
     this.viewKey++;
+  }
+
+  /** 移动端：进入搜索入口页 */
+  openSearch() {
+    this.sheet = null;
+    if (this.view.kind === 'search' || this.view.kind === 'search-home') return;
+    this.#go({ kind: 'search-home' });
   }
 
   async #run<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -170,6 +191,8 @@ class AppState {
   }
 
   async search(q: string) {
+    q = q.trim();
+    if (!q) return;
     const tracks = await this.#run(() => api.search(q, settings.searchLimit, 0, this.source));
     if (!tracks) return;
     remember({ q, title: q, kind: 'query' });
@@ -183,9 +206,11 @@ class AppState {
     try {
       const more = await api.search(v.q, settings.searchLimit, v.offset, this.source);
       v.offset += more.length;
-      const ids = new Set(v.tracks.map((t) => t.id));
-      v.tracks.push(...more.filter((t) => !ids.has(t.id)));
-      v.done = more.length < settings.searchLimit;
+      const ids = new Set(v.tracks.map((t) => `${t.source}:${t.id}`));
+      const fresh = more.filter((t) => !ids.has(`${t.source}:${t.id}`));
+      v.tracks.push(...fresh);
+      // 聚合搜索各平台返回数可能不足 limit，用"是否有新内容"判断结束更可靠
+      v.done = more.length === 0 || (fresh.length === 0 && more.length < settings.searchLimit);
     } catch (e) {
       toast.error('加载更多失败', (e as Error).message);
     } finally {
