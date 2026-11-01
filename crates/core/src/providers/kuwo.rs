@@ -11,7 +11,6 @@ use crate::source::{BoxFut, Source};
 pub struct Kuwo {
     http: reqwest::Client,
     cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
-    home_cache: std::sync::Arc<std::sync::RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 impl Default for Kuwo {
@@ -40,7 +39,6 @@ impl Kuwo {
         Self {
             http,
             cookie: Default::default(),
-            home_cache: Default::default(),
         }
     }
 
@@ -350,11 +348,6 @@ impl Source for Kuwo {
 
     fn home(&self) -> BoxFut<'_, HomeFeed> {
         Box::pin(async move {
-            if let Some((t, f)) = self.home_cache.read().unwrap().as_ref() {
-                if t.elapsed() < std::time::Duration::from_secs(900) {
-                    return Ok(f.clone());
-                }
-            }
             let (rcm, news) = tokio::join!(
                 self.get(
                     "https://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList",
@@ -380,15 +373,11 @@ impl Source for Kuwo {
                     })
                 })
                 .unwrap_or_default();
-            let feed = HomeFeed {
+            Ok(HomeFeed {
                 playlists,
                 charts: Vec::new(),
                 new_songs: news.unwrap_or_default(),
-            };
-            if !feed.playlists.is_empty() {
-                *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
-            }
-            Ok(feed)
+            })
         })
     }
 

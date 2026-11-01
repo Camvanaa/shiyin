@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::api::Netease;
+use crate::cache::DataCache;
 use crate::error::{Error, Result};
 use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, Resolved, SongUrl, Track};
 
@@ -58,6 +59,7 @@ pub type DynSource = Arc<dyn Source>;
 #[derive(Clone)]
 pub struct Sources {
     list: Vec<DynSource>,
+    cache: DataCache,
 }
 
 impl Sources {
@@ -67,11 +69,48 @@ impl Sources {
             Arc::new(crate::providers::kuwo::Kuwo::new()),
             Arc::new(crate::providers::qq::QQ::new()),
         ];
-        Self { list }
+        Self { list, cache: DataCache::new() }
     }
 
     pub fn list(&self) -> &[DynSource] {
         &self.list
+    }
+
+    pub fn cache(&self) -> &DataCache {
+        &self.cache
+    }
+
+    // ---- 带缓存的只读门面：服务端与桌面端都应通过这些方法访问，而不是直接调 pick(..).xxx ----
+
+    pub async fn track(&self, source: &str, id: &str) -> Result<Arc<Track>> {
+        let s = self.pick(source)?;
+        self.cache.track(s.id(), id, || s.track(id)).await
+    }
+
+    pub async fn lyric(&self, source: &str, id: &str) -> Result<Arc<Lyric>> {
+        let s = self.pick(source)?;
+        self.cache.lyric(s.id(), id, || s.lyric(id)).await
+    }
+
+    pub async fn collection(&self, source: &str, kind: CollectionKind, id: &str) -> Result<Arc<Collection>> {
+        let s = self.pick(source)?;
+        let kind_key = match kind {
+            CollectionKind::Playlist => "playlist",
+            CollectionKind::Album => "album",
+            CollectionKind::Toplist => "toplist",
+        };
+        self.cache.collection(s.id(), kind_key, id, || s.collection(kind, id)).await
+    }
+
+    /// 单音源搜索（带缓存）。聚合搜索走 `search_all`。
+    pub async fn search(&self, source: &str, q: &str, limit: u32, offset: u32) -> Result<Arc<Vec<Track>>> {
+        let s = self.pick(source)?;
+        self.cache.search(s.id(), q, limit, offset, || s.search(q, limit, offset)).await
+    }
+
+    /// 登录 / 登出 / 切换凭证后调用
+    pub fn on_credentials_changed(&self) {
+        self.cache.invalidate_account_scoped();
     }
 
     pub fn get(&self, id: &str) -> Option<&DynSource> {
@@ -135,6 +174,14 @@ impl Sources {
     /// 聚合搜索：并发请求各音源，结果交替穿插（避免单一平台占满前排）。
     /// `offset` 为聚合层偏移，按音源数均分后传给各平台，实现"加载更多"。
     pub async fn search_all(&self, keywords: &str, limit: u32, offset: u32) -> Vec<Track> {
+        self.cache
+            .search("all", keywords, limit, offset, || async { Ok(self.search_all_uncached(keywords, limit, offset).await) })
+            .await
+            .map(|a| (*a).clone())
+            .unwrap_or_default()
+    }
+
+    async fn search_all_uncached(&self, keywords: &str, limit: u32, offset: u32) -> Vec<Track> {
         let n = self.list.len().max(1) as u32;
         let per = (limit / n).max(8);
         let per_offset = offset / n;
@@ -150,8 +197,13 @@ impl Sources {
     }
 
     /// 首页内容：`source` 为 "all" 或空时聚合所有音源，否则只取指定音源。
-    pub async fn home(&self, source: &str) -> Result<HomeFeed> {
-        if !source.is_empty() && source != "all" {
+    pub async fn home(&self, source: &str) -> Result<Arc<HomeFeed>> {
+        let key = if source.is_empty() { "all" } else { source };
+        self.cache.home(key, || self.home_uncached(key)).await
+    }
+
+    async fn home_uncached(&self, source: &str) -> Result<HomeFeed> {
+        if source != "all" {
             return self.pick(source)?.home().await;
         }
         let feeds = futures_util::future::join_all(self.list.iter().map(|s| async move {

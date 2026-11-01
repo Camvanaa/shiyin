@@ -32,7 +32,7 @@ fn e<E: ToString>(err: E) -> String {
 
 #[tauri::command]
 async fn home(s: State<'_, Ctx>, source: Option<String>) -> R<shiyin_core::HomeFeed> {
-    s.sources.home(source.as_deref().unwrap_or("")).await.map_err(e)
+    s.sources.home(source.as_deref().unwrap_or("")).await.map(|f| (*f).clone()).map_err(e)
 }
 
 #[tauri::command]
@@ -54,12 +54,12 @@ async fn search(s: State<'_, Ctx>, q: String, limit: u32, offset: u32, source: S
     if source.is_empty() || source == "all" {
         return Ok(s.sources.search_all(&q, limit, offset).await);
     }
-    pick(&s, &source)?.search(&q, limit, offset).await.map_err(e)
+    s.sources.search(&source, &q, limit, offset).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
 async fn song(s: State<'_, Ctx>, id: String, source: String) -> R<Track> {
-    pick(&s, &source)?.track(&id).await.map_err(e)
+    s.sources.track(&source, &id).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
@@ -69,22 +69,22 @@ async fn song_url(s: State<'_, Ctx>, id: String, level: String, source: String) 
 
 #[tauri::command]
 async fn lyric(s: State<'_, Ctx>, id: String, source: String) -> R<Lyric> {
-    pick(&s, &source)?.lyric(&id).await.map_err(e)
+    s.sources.lyric(&source, &id).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
 async fn playlist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
-    pick(&s, &source)?.collection(CollectionKind::Playlist, &id).await.map_err(e)
+    s.sources.collection(&source, CollectionKind::Playlist, &id).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
 async fn album(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
-    pick(&s, &source)?.collection(CollectionKind::Album, &id).await.map_err(e)
+    s.sources.collection(&source, CollectionKind::Album, &id).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
 async fn toplist(s: State<'_, Ctx>, id: String, source: String) -> R<Collection> {
-    pick(&s, &source)?.collection(CollectionKind::Toplist, &id).await.map_err(e)
+    s.sources.collection(&source, CollectionKind::Toplist, &id).await.map(|t| (*t).clone()).map_err(e)
 }
 
 #[tauri::command]
@@ -111,6 +111,7 @@ async fn match_candidates(s: State<'_, Ctx>, name: String, artist: String, skip:
 fn set_source_cookie(s: State<'_, Ctx>, source: String, cookie: Option<String>) -> R<Value> {
     let src = pick(&s, &source)?;
     src.set_cookie(cookie.clone());
+    s.sources.on_credentials_changed();
     s.store.save_for(&source, cookie.as_deref()).map_err(e)?;
     Ok(json!({ "ok": true, "hasCookie": src.has_cookie() }))
 }
@@ -128,6 +129,7 @@ async fn set_cookie(s: State<'_, Ctx>, music_u: String) -> R<Value> {
     match s.api.account().await {
         Ok(Some(acc)) => {
             s.store.save(s.api.music_u().as_deref()).map_err(e)?;
+            s.sources.on_credentials_changed();
             Ok(json!({ "account": acc }))
         }
         Ok(None) => {
@@ -144,6 +146,7 @@ async fn set_cookie(s: State<'_, Ctx>, music_u: String) -> R<Value> {
 #[tauri::command]
 fn logout(s: State<'_, Ctx>) -> R<()> {
     s.api.set_music_u(None);
+    s.sources.on_credentials_changed();
     s.store.save(None).map_err(e)
 }
 
@@ -159,6 +162,7 @@ async fn qr_check(s: State<'_, Ctx>, key: String) -> R<Value> {
     if let Some(mu) = music_u {
         s.api.set_music_u(Some(mu));
         s.store.save(s.api.music_u().as_deref()).map_err(e)?;
+        s.sources.on_credentials_changed();
         account = s.api.account().await.ok().flatten();
     }
     Ok(json!({ "state": state, "account": account }))

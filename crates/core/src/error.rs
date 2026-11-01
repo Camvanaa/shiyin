@@ -18,6 +18,8 @@ pub enum Error {
     Cancelled,
     #[error("{0}")]
     Invalid(String),
+    #[error("上游服务错误：{0}")]
+    Upstream(String),
 }
 
 impl From<serde_json::Error> for Error {

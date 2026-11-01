@@ -153,7 +153,7 @@ struct Q {
 }
 
 async fn home(State(c): State<Ctx>, Query(q): Query<SourceQ>) -> R<shiyin_core::HomeFeed> {
-    Ok(Json(c.app.sources.home(&q.source).await?))
+    Ok(Json((*c.app.sources.home(&q.source).await?).clone()))
 }
 
 async fn resolve(State(c): State<Ctx>, Query(q): Query<Q>) -> R<shiyin_core::Resolved> {
@@ -190,12 +190,11 @@ async fn search(State(c): State<Ctx>, Query(q): Query<SearchQ>) -> R<Vec<Track>>
     if q.source.is_empty() || q.source == "all" {
         return Ok(Json(c.app.sources.search_all(&q.q, q.limit, q.offset).await));
     }
-    let src = pick(&c, &q.source)?;
-    Ok(Json(src.search(&q.q, q.limit, q.offset).await?))
+    Ok(Json((*c.app.sources.search(&q.source, &q.q, q.limit, q.offset).await?).clone()))
 }
 
 async fn song(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<Track> {
-    Ok(Json(pick(&c, &q.source)?.track(&id).await?))
+    Ok(Json((*c.app.sources.track(&q.source, &id).await?).clone()))
 }
 
 #[derive(Deserialize)]
@@ -220,19 +219,19 @@ async fn song_url(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): 
 }
 
 async fn lyric(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Lyric> {
-    Ok(Json(pick(&c, &q.source)?.lyric(&id).await?))
+    Ok(Json((*c.app.sources.lyric(&q.source, &id).await?).clone()))
 }
 
 async fn playlist(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
-    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Playlist, &id).await?))
+    Ok(Json((*c.app.sources.collection(&q.source, shiyin_core::CollectionKind::Playlist, &id).await?).clone()))
 }
 
 async fn album(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
-    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Album, &id).await?))
+    Ok(Json((*c.app.sources.collection(&q.source, shiyin_core::CollectionKind::Album, &id).await?).clone()))
 }
 
 async fn toplist(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<shiyin_core::Collection> {
-    Ok(Json(pick(&c, &q.source)?.collection(shiyin_core::CollectionKind::Toplist, &id).await?))
+    Ok(Json((*c.app.sources.collection(&q.source, shiyin_core::CollectionKind::Toplist, &id).await?).clone()))
 }
 
 #[derive(Deserialize)]
@@ -277,6 +276,7 @@ struct SourceCookieBody {
 async fn set_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<SourceCookieBody>) -> R<Value> {
     let src = pick(&c, &id)?;
     src.set_cookie(Some(b.cookie.clone()));
+    c.app.sources.on_credentials_changed();
     c.app.store.save_for(&id, Some(&b.cookie))?;
     Ok(Json(json!({ "ok": true, "hasCookie": src.has_cookie() })))
 }
@@ -284,6 +284,7 @@ async fn set_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, J
 async fn clear_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<Value> {
     let src = pick(&c, &id)?;
     src.set_cookie(None);
+    c.app.sources.on_credentials_changed();
     c.app.store.save_for(&id, None)?;
     Ok(Json(json!({ "ok": true, "hasCookie": false })))
 }
@@ -295,6 +296,7 @@ async fn account(State(c): State<Ctx>) -> R<Value> {
 async fn logout(State(c): State<Ctx>) -> R<Value> {
     c.app.api.set_music_u(None);
     c.app.store.save(None)?;
+    c.app.sources.on_credentials_changed();
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -310,6 +312,7 @@ async fn set_cookie(State(c): State<Ctx>, Json(b): Json<CookieBody>) -> R<Value>
     match c.app.api.account().await {
         Ok(Some(acc)) => {
             c.app.store.save(c.app.api.music_u().as_deref())?;
+            c.app.sources.on_credentials_changed();
             Ok(Json(json!({ "account": acc })))
         }
         other => {
@@ -333,6 +336,7 @@ async fn qr_check(State(c): State<Ctx>, UrlPath(key): UrlPath<String>) -> R<Valu
     if let Some(mu) = music_u {
         c.app.api.set_music_u(Some(mu));
         c.app.store.save(c.app.api.music_u().as_deref())?;
+        c.app.sources.on_credentials_changed();
         account = c.app.api.account().await.ok().flatten();
     }
     Ok(Json(json!({ "state": state, "account": account })))

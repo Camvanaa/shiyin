@@ -1,4 +1,5 @@
 pub mod api;
+pub mod cache;
 pub mod crypto;
 pub mod download;
 pub mod error;
@@ -14,4 +15,5 @@ pub mod tag;
 pub use api::Netease;
 pub use error::{Error, Result};
 pub use model::*;
+pub use cache::DataCache;
 pub use source::{DynSource, Source, Sources};

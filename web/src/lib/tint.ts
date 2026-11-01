@@ -1,6 +1,12 @@
 import { img } from './format';
 
+// 主色缓存：Map 保持插入顺序，超出上限时淘汰最早的（简单 LRU）
 const cache = new Map<string, string>();
+const CACHE_MAX = 200;
+function remember(url: string, v: string) {
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
+  cache.set(url, v);
+}
 
 /** 从封面提取主色，返回 "r g b"。失败时返回空字符串。 */
 /** 已知带 CORS 头、允许 canvas 读取的封面域名 */
@@ -9,7 +15,12 @@ const CORS_OK = /\.126\.net\//;
 export function extractTint(url: string): Promise<string> {
   if (!url || !CORS_OK.test(url)) return Promise.resolve('');
   const hit = cache.get(url);
-  if (hit !== undefined) return Promise.resolve(hit);
+  if (hit !== undefined) {
+    // 命中后移到末尾，使其成为最近使用
+    cache.delete(url);
+    cache.set(url, hit);
+    return Promise.resolve(hit);
+  }
   return new Promise((resolve) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
@@ -41,7 +52,7 @@ export function extractTint(url: string): Promise<string> {
         const k = lum < 90 ? 90 / Math.max(lum, 1) : lum > 170 ? 170 / lum : 1;
         const ch = (v: number) => Math.min(255, Math.round(v * k));
         const out = `${ch(r)} ${ch(gg)} ${ch(b)}`;
-        cache.set(url, out);
+        remember(url, out);
         resolve(out);
       } catch {
         resolve('');

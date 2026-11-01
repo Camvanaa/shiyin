@@ -21,7 +21,6 @@ pub struct Netease {
     music_u: Arc<RwLock<Option<String>>>,
     /// 部署在海外时设置一个国内 IP，网易云据此判断版权地区
     real_ip: Option<HeaderValue>,
-    home_cache: Arc<RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 fn s(v: &Value) -> String {
@@ -113,7 +112,6 @@ impl Netease {
             http,
             music_u: Arc::new(RwLock::new(None)),
             real_ip: None,
-            home_cache: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -391,13 +389,8 @@ impl Netease {
         Ok((state, music_u))
     }
 
-    /// 首页推荐内容：推荐歌单、官方榜单、最新音乐。内存缓存 15 分钟。
+    /// 首页推荐内容：推荐歌单、官方榜单、最新音乐。缓存由 `Sources` 统一层负责。
     pub async fn home(&self) -> Result<HomeFeed> {
-        if let Some((t, feed)) = self.home_cache.read().unwrap().as_ref() {
-            if t.elapsed() < Duration::from_secs(900) {
-                return Ok(feed.clone());
-            }
-        }
         let limit = [("limit", String::from("12"))];
         let (pl, top, ns) = tokio::join!(
             self.api_form("https://music.163.com/api/personalized/playlist", &limit),
@@ -482,10 +475,6 @@ impl Netease {
             })
             .unwrap_or_default();
 
-        let feed = HomeFeed { playlists, charts, new_songs };
-        if !feed.playlists.is_empty() || !feed.charts.is_empty() {
-            *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
-        }
-        Ok(feed)
+        Ok(HomeFeed { playlists, charts, new_songs })
     }
 }

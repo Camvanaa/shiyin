@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Select from './Select.svelte';
   import { app } from '../lib/app.svelte';
   import { settings } from '../lib/settings.svelte';
   import { player } from '../lib/player.svelte';
@@ -10,6 +11,13 @@
   import { LEVELS } from '../lib/types';
 
   export type Pane = 'quality' | 'download' | 'naming' | 'meta' | 'desktop' | 'general';
+
+  const THEMES: { value: 'system' | 'light' | 'dark'; label: string }[] = [
+    { value: 'system', label: '跟随系统' },
+    { value: 'light', label: '浅色' },
+    { value: 'dark', label: '深色' },
+  ];
+  const LIMITS = [20, 30, 50, 100].map((n) => ({ value: n, label: String(n) }));
 
   // 设置内容：桌面侧栏面板按 pane 单独渲染；移动端页面传 'all' 一屏到底
   let { pane = 'all' }: { pane?: Pane | 'all' } = $props();
@@ -62,18 +70,14 @@
   <section>
     <h3>音质与播放</h3>
     <div class="group">
-      <label class="item">
+      <div class="item">
         <span>播放音质</span>
-        <select bind:value={settings.playLevel}>
-          {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
-        </select>
-      </label>
-      <label class="item">
+        <Select bind:value={settings.playLevel} options={LEVELS} label="播放音质" />
+      </div>
+      <div class="item">
         <span>下载音质</span>
-        <select bind:value={settings.level}>
-          {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
-        </select>
-      </label>
+        <Select bind:value={settings.level} options={LEVELS} label="下载音质" />
+      </div>
       <label class="item">
         <span>无版权或仅试听时自动换源</span>
         <input type="checkbox" class="switch" bind:checked={settings.autoFallback} />
@@ -191,20 +195,14 @@
   <section>
     <h3>通用</h3>
     <div class="group">
-      <label class="item">
+      <div class="item">
         <span>外观</span>
-        <select bind:value={settings.theme}>
-          <option value="system">跟随系统</option>
-          <option value="light">浅色</option>
-          <option value="dark">深色</option>
-        </select>
-      </label>
-      <label class="item">
+        <Select bind:value={settings.theme} options={THEMES} label="外观" />
+      </div>
+      <div class="item">
         <span>每次搜索数量</span>
-        <select bind:value={settings.searchLimit}>
-          {#each [20, 30, 50, 100] as n}<option value={n}>{n}</option>{/each}
-        </select>
-      </label>
+        <Select bind:value={settings.searchLimit} options={LIMITS} label="每次搜索数量" />
+      </div>
       <div class="item">
         <span>搜索记录</span>
         <button class="btn plain" onclick={() => (clearHistory(), toast.info('已清除搜索记录'))}>清除</button>
@@ -282,19 +280,6 @@
     margin: 6px 12px 0;
     font-size: 12px;
     color: var(--fg-3);
-  }
-  select {
-    appearance: none;
-    height: 28px;
-    padding: 0 28px 0 10px;
-    border-radius: 7px;
-    border: 0;
-    background: var(--bg-elev)
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E")
-      no-repeat right 8px center / 12px;
-    box-shadow: var(--shadow-sm);
-    font-size: 13px;
-    outline: none;
   }
   .switch {
     appearance: none;
@@ -474,14 +459,6 @@
     .note {
       margin: 8px 16px 0;
       font-size: 13px;
-    }
-    select {
-      height: 32px;
-      font-size: 15px;
-      background-color: transparent;
-      box-shadow: none;
-      color: var(--fg-2);
-      padding-left: 0;
     }
     .switch {
       width: 51px;

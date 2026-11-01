@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Select from './Select.svelte';
   import { app } from '../lib/app.svelte';
   import { forget, suggest, type HistoryEntry } from '../lib/history.svelte';
   import { img, LINK_RE } from '../lib/format';
@@ -65,6 +66,7 @@
     }
   }
 
+  const srcOptions = $derived([{ value: 'all', label: '全部' }, ...app.sources.map((s) => ({ value: s.id, label: s.label.replace('音乐', '') }))]);
   const kindIcon = { query: 'clock', song: 'note', playlist: 'list', album: 'disc' } as const;
   const kindLabel = { query: '', song: '歌曲', playlist: '歌单', album: '专辑' } as const;
 </script>
@@ -75,16 +77,7 @@
   <div class="field">
     {#if app.sources.length}
       <div class="srcpick">
-        <select
-          value={app.source}
-          onchange={(e) => app.setSource((e.target as HTMLSelectElement).value)}
-          aria-label="音源"
-        >
-          <option value="all">全部</option>
-          {#each app.sources as src}
-            <option value={src.id}>{src.label.replace('音乐', '')}</option>
-          {/each}
-        </select>
+        <Select compact value={app.source} options={srcOptions} label="音源" onchange={(v) => app.setSource(v)} />
         <span class="divider"></span>
       </div>
     {/if}
@@ -165,21 +158,6 @@
     align-items: center;
     flex: none;
     margin-left: 4px;
-  }
-  .srcpick select {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: var(--fg-2);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 0 4px 0 8px;
-    height: 28px;
-    outline: none;
-    max-width: 76px;
-  }
-  .srcpick select:hover {
-    color: var(--fg);
   }
   .divider {
     width: 0.5px;

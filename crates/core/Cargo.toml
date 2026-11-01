@@ -20,3 +20,4 @@ id3 = { version = "1", default-features = false }
 metaflac = "0.2"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 rand = "0.8"
+moka = { version = "0.12", features = ["future"] }

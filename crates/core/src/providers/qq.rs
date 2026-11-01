@@ -12,7 +12,6 @@ use crate::source::{BoxFut, Source};
 pub struct QQ {
     http: reqwest::Client,
     cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
-    home_cache: std::sync::Arc<std::sync::RwLock<Option<(std::time::Instant, HomeFeed)>>>,
 }
 
 impl Default for QQ {
@@ -39,7 +38,6 @@ impl QQ {
         Self {
             http,
             cookie: Default::default(),
-            home_cache: Default::default(),
         }
     }
 
@@ -450,11 +448,6 @@ impl Source for QQ {
 
     fn home(&self) -> BoxFut<'_, HomeFeed> {
         Box::pin(async move {
-            if let Some((t, f)) = self.home_cache.read().unwrap().as_ref() {
-                if t.elapsed() < std::time::Duration::from_secs(900) {
-                    return Ok(f.clone());
-                }
-            }
             let v = self
                 .musicu(json!({
                     "comm": { "ct": 24, "cv": 0 },
@@ -518,11 +511,7 @@ impl Source for QQ {
                 .or_else(|| v["new"]["data"]["songlist"].as_array())
                 .map(|a| a.iter().take(12).map(Self::song).collect())
                 .unwrap_or_default();
-            let feed = HomeFeed { playlists, charts, new_songs };
-            if !feed.playlists.is_empty() || !feed.charts.is_empty() {
-                *self.home_cache.write().unwrap() = Some((std::time::Instant::now(), feed.clone()));
-            }
-            Ok(feed)
+            Ok(HomeFeed { playlists, charts, new_songs })
         })
     }
 
