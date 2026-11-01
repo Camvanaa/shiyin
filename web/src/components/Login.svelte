@@ -5,12 +5,12 @@
   import { app } from '../lib/app.svelte';
   import { api, isTauri } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
+  import { sourceShort } from '../lib/format';
 
   let platform = $state('netease');
   let extCookie = $state('');
   /** 支持凭证的音源（后端给了 cookieHint 的），网易云始终第一 */
   const platforms = $derived(app.sources.filter((x) => x.id === 'netease' || x.cookieHint));
-  const short = (label: string) => label.replace('音乐', '');
   import type { QrState } from '../lib/types';
 
   let mode = $state<'qr' | 'cookie'>('qr');
@@ -97,7 +97,7 @@
   <div class="wrap">
   <div class="seg-ctl plat" role="tablist">
     {#each platforms as p (p.id)}
-      <button class:on={platform === p.id} onclick={() => ((platform = p.id), (extCookie = ''))} role="tab" aria-selected={platform === p.id}>{short(p.label)}</button>
+      <button class:on={platform === p.id} onclick={() => ((platform = p.id), (extCookie = ''))} role="tab" aria-selected={platform === p.id}>{sourceShort(p.id)}</button>
     {/each}
   </div>
   {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : '')}
