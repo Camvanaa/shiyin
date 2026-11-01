@@ -59,8 +59,8 @@
     }, 1000);
   }
   async function loadCaptcha() {
+    // 不清空 smsErr：发短信失败后会刷新验证码，此时要保留错误提示
     smsCaptchaLoading = true;
-    smsErr = '';
     try {
       smsCaptcha = await api.sourceSmsCaptcha(platform);
     } catch (e) {
