@@ -186,7 +186,7 @@ class Player {
     this.#audio.volume = settings.volume;
   }
 
-  /** 实际播放所用的音源（发生自动换源时与 current.source 不同） */
+  /** 实际提供音频的音源；与 current.source 不同时非空（自动换源时置位，手动换源会替换曲目本身所以为空） */
   matchedFrom = $state('');
 
   async #resolveUrl(t: Track): Promise<{ url: string; level: string; trial: boolean; from: string }> {
@@ -250,7 +250,12 @@ class Player {
       this.quality = u.level;
       this.trial = u.trial;
       this.matchedFrom = u.from !== t.source ? u.from : '';
-      if (u.trial) toast.info(`「${t.name}」只能试听片段`, '登录会员账号后可播放完整歌曲');
+      if (u.trial) {
+        toast.info(
+          `「${t.name}」只能试听片段`,
+          t.source === 'apple' ? '其它平台未找到可播放的完整版本' : '登录会员账号后可播放完整歌曲',
+        );
+      }
       this.#audio.src = u.url;
       if (resume) {
         const a = this.#audio;
@@ -415,7 +420,6 @@ class Player {
   async switchSource(c: MatchCandidate) {
     const i = this.index;
     if (i < 0) return;
-    const original = this.queue[i];
     this.#urlCache.set(this.#cacheKey(c.track), {
       url: c.url.url,
       level: c.url.level,
@@ -426,7 +430,6 @@ class Player {
     const resume = this.#audio.currentTime;
     const wasPlaying = !this.#audio.paused;
     this.queue = this.queue.map((t, k) => (k === i ? c.track : t));
-    this.matchedFrom = c.track.source !== original.source ? original.source : '';
     await this.#load(true);
     if (resume > 0) this.seek(resume);
     if (!wasPlaying) this.#audio.pause();

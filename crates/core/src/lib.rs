@@ -16,4 +16,4 @@ pub use api::Netease;
 pub use error::{Error, Result};
 pub use model::*;
 pub use cache::DataCache;
-pub use source::{DynSource, Source, Sources};
+pub use source::{DynSource, Source, SourceOption, Sources};

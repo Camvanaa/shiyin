@@ -1,12 +1,16 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Select from './Select.svelte';
   import Sheet from './Sheet.svelte';
   import { app } from '../lib/app.svelte';
   import { api, isTauri } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
 
-  let platform = $state<'netease' | 'qq' | 'kuwo'>('netease');
+  let platform = $state('netease');
   let extCookie = $state('');
+  /** 支持凭证的音源（后端给了 cookieHint 的），网易云始终第一 */
+  const platforms = $derived(app.sources.filter((x) => x.id === 'netease' || x.cookieHint));
+  const short = (label: string) => label.replace('音乐', '');
   import type { QrState } from '../lib/types';
 
   let mode = $state<'qr' | 'cookie'>('qr');
@@ -92,8 +96,8 @@
 <Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={440} size="lg" height={560} bare>
   <div class="wrap">
   <div class="seg-ctl plat" role="tablist">
-    {#each [['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as const as [id, label]}
-      <button class:on={platform === id} onclick={() => ((platform = id), (extCookie = ''))} role="tab" aria-selected={platform === id}>{label}</button>
+    {#each platforms as p (p.id)}
+      <button class:on={platform === p.id} onclick={() => ((platform = p.id), (extCookie = ''))} role="tab" aria-selected={platform === p.id}>{short(p.label)}</button>
     {/each}
   </div>
   {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : '')}
@@ -101,8 +105,23 @@
   {#if platform !== 'netease'}
     {@const info = app.sources.find((x) => x.id === platform)}
     <div class="cookie">
+      {#if info?.options.length}
+        <div class="opts">
+          {#each info.options as o (o.key)}
+            <div class="opt-row">
+              <span>{o.label}</span>
+              <Select
+                value={o.value}
+                options={o.choices.map(([value, label]) => ({ value, label }))}
+                label={o.label}
+                onchange={async (v) => { await api.setSourceOption(platform, o.key, v); app.sources = await api.sources(); app.loadHome(); toast.success(`${info.label} 已切换到${o.choices.find((c) => c[0] === v)?.[1] ?? v}`); }}
+              />
+            </div>
+          {/each}
+        </div>
+      {/if}
       <p class="muted">
-        {platform === 'qq' ? '粘贴 y.qq.com 已登录的 Cookie（需含 uin 与 qqmusic_key）以访问绿钻曲库。' : '粘贴 kuwo.cn 已登录的 Cookie。'}当前状态：{info?.hasCookie ? '已配置' : '未配置'}。
+        {info?.cookieHint}当前状态：{info?.hasCookie ? '已配置' : '未配置'}。
       </p>
       <textarea class="input" rows="4" bind:value={extCookie} placeholder="粘贴 Cookie" spellcheck="false"></textarea>
       <div class="row-btns">
@@ -183,6 +202,19 @@
   }
   .plat {
     flex: none;
+  }
+  .opts {
+    border-radius: var(--r);
+    background: var(--bg-2);
+    margin-bottom: 12px;
+  }
+  .opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 6px 12px 6px 14px;
+    font-size: 13px;
   }
   .me {
     display: flex;

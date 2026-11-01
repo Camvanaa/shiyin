@@ -1,7 +1,7 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
   Account, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
-  SongUrl, SourceInfo, Track,
+  SongUrl, SourceInfo, SourceOption, Track,
 } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -20,6 +20,7 @@ export interface Api {
   matchPlayable(name: string, artist: string, skip: string, level: string, duration?: number): Promise<{ track: Track; url: SongUrl }>;
   matchCandidates(name: string, artist: string, skip: string, level: string, duration?: number): Promise<MatchCandidate[]>;
   setSourceCookie(source: string, cookie: string | null): Promise<{ hasCookie: boolean }>;
+  setSourceOption(source: string, key: string, value: string): Promise<{ options: SourceOption[] }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
   setCookie(musicU: string): Promise<{ account: Account }>;
   logout(): Promise<void>;
@@ -84,6 +85,7 @@ const httpApi: Api = {
   matchPlayable: (name, artist, skip, level, duration = 0) => http('GET', `/match?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}&duration=${duration}`),
   matchCandidates: (name, artist, skip, level, duration = 0) => http('GET', `/match/all?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}&duration=${duration}`),
   setSourceCookie: (source, cookie) => cookie ? http('POST', `/sources/${enc(source)}/cookie`, { cookie }) : http('DELETE', `/sources/${enc(source)}/cookie`),
+  setSourceOption: (source, key, value) => http('POST', `/sources/${enc(source)}/options`, { key, value }),
   account: () => http('GET', '/account'),
   setCookie: (musicU) => http('POST', '/account/cookie', { musicU }),
   logout: () => http('DELETE', '/account'),
@@ -154,6 +156,7 @@ async function tauriApi(): Promise<Api> {
     matchPlayable: (name, artist, skip, level, duration = 0) => call('match_playable', { name, artist, skip, level, duration }),
     matchCandidates: (name, artist, skip, level, duration = 0) => call('match_candidates', { name, artist, skip, level, duration }),
     setSourceCookie: (source, cookie) => call('set_source_cookie', { source, cookie }),
+    setSourceOption: (source, key, value) => call('set_source_option', { source, key, value }),
     account: () => call('account'),
     setCookie: (musicU) => call('set_cookie', { musicU }),
     logout: () => call('logout'),

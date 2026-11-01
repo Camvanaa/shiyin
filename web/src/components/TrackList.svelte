@@ -155,7 +155,8 @@
             <span class="badge src">{sourceShort(t.source)}</span>
             {#if t.availability === 'none'}<span class="badge">无版权</span>
             {:else if t.availability === 'paid'}<span class="badge vip">付费</span>
-            {:else if t.fee === 1}<span class="badge vip">VIP</span>{/if}
+            {:else if t.fee === 1}<span class="badge vip">VIP</span>
+            {:else if t.availability === 'vip'}<span class="badge" title="该平台仅提供试听，播放时自动换源">试听</span>{/if}
             {artists(t)}
           </div>
         </div>

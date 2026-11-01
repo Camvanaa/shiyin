@@ -515,6 +515,10 @@ impl Source for QQ {
         })
     }
 
+    fn cookie_hint(&self) -> &'static str {
+        "粘贴 y.qq.com 已登录的 Cookie（需含 uin 与 qqmusic_key）以访问绿钻曲库。"
+    }
+
     fn is_allowed_media_url(&self, url: &str) -> bool {
         let Ok(u) = reqwest::Url::parse(url) else { return false };
         if !matches!(u.scheme(), "https" | "http") {

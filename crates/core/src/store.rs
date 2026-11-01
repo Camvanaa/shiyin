@@ -86,3 +86,30 @@ impl CredentialStore {
         }
     }
 }
+
+/// 音源选项持久化：一个 JSON 文件 `{ "apple": { "storefront": "hk" } }`，不含凭证。
+impl CredentialStore {
+    fn options_path(&self) -> PathBuf {
+        self.path.with_file_name("source-options.json")
+    }
+
+    pub fn load_option(&self, source: &str, key: &str) -> Option<String> {
+        let text = std::fs::read_to_string(self.options_path()).ok()?;
+        let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+        v[source][key].as_str().map(str::to_owned)
+    }
+
+    pub fn save_option(&self, source: &str, key: &str, value: &str) -> Result<()> {
+        let p = self.options_path();
+        let mut v: serde_json::Value = std::fs::read_to_string(&p)
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_else(|| serde_json::json!({}));
+        v[source][key] = serde_json::Value::String(value.to_owned());
+        if let Some(dir) = p.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(&p, serde_json::to_vec_pretty(&v)?)?;
+        Ok(())
+    }
+}

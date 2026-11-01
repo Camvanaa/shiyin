@@ -122,7 +122,7 @@
       <button class="icon-btn" onclick={close} aria-label="收起"><Icon name="chevronDown" stroke={2.2} /></button>
       <div class="grabber" aria-hidden="true"></div>
       <button class="tags" onclick={() => openPanel('source')} aria-label="音源与音质" title="音源与音质">
-        <span class="q">{player.matchedFrom ? `${sourceName(player.matchedFrom)} → ${sourceName(t.source)}` : sourceName(t.source)}</span>
+        <span class="q">{sourceName(t.source)}{#if player.matchedFrom} · 由 {sourceName(player.matchedFrom)} 播放{/if}</span>
         {#if player.trial}<span class="q warn">试听</span>{/if}
         {#if levelLabel}<span class="q">{levelLabel}</span>{/if}
         <Icon name="chevronDown" size={12} stroke={2.4} />

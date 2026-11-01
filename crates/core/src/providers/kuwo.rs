@@ -381,6 +381,10 @@ impl Source for Kuwo {
         })
     }
 
+    fn cookie_hint(&self) -> &'static str {
+        "粘贴 kuwo.cn 已登录的 Cookie。"
+    }
+
     fn is_allowed_media_url(&self, url: &str) -> bool {
         let Ok(u) = reqwest::Url::parse(url) else { return false };
         if !matches!(u.scheme(), "https" | "http") {

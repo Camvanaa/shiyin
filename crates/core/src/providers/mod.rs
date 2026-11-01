@@ -1,5 +1,6 @@
 //! 各音乐平台的适配器实现。
 
+pub mod apple;
 pub mod kuwo;
 pub mod qq;
 

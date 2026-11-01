@@ -5,7 +5,7 @@ export interface Artist {
 
 export interface Track {
   id: string;
-  /** 来源音源：netease / qq / kuwo */
+  /** 来源音源：netease / qq / kuwo / apple */
   source: string;
   name: string;
   alias: string | null;
@@ -69,11 +69,22 @@ export type Resolved =
   | { type: 'album'; source: string; id: string }
   | { type: 'query'; value: string };
 
+export interface SourceOption {
+  key: string;
+  label: string;
+  value: string;
+  choices: [string, string][];
+}
+
 export interface SourceInfo {
   id: string;
   label: string;
   levels: string[];
   hasCookie: boolean;
+  /** 凭证说明；为空表示该音源不支持 Cookie */
+  cookieHint: string;
+  /** 音源级可配置项（如 Apple Music 商店区域） */
+  options: SourceOption[];
 }
 
 export type JobStatus = 'waiting' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';

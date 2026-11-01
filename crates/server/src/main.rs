@@ -61,6 +61,7 @@ async fn main() {
 
     let sources = Sources::new(api.clone());
     sources.restore_cookies(|id| store.load_for(id));
+    sources.restore_options(|id, key| store.load_option(id, key));
     let state = Arc::new(AppState { api, sources, store, token, tmp });
     let app = routes::router(state);
 

@@ -45,8 +45,25 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
     s.sources
         .list()
         .iter()
-        .map(|x| serde_json::json!({ "id": x.id(), "label": x.label(), "levels": x.levels(), "hasCookie": x.has_cookie() }))
+        .map(|x| {
+            serde_json::json!({
+                "id": x.id(),
+                "label": x.label(),
+                "levels": x.levels(),
+                "hasCookie": x.has_cookie(),
+                "cookieHint": x.cookie_hint(),
+                "options": x.options(),
+            })
+        })
         .collect()
+}
+
+#[tauri::command]
+fn set_source_option(s: State<'_, Ctx>, source: String, key: String, value: String) -> R<Value> {
+    s.sources.set_option(&source, &key, &value).map_err(e)?;
+    s.store.save_option(&source, &key, &value).map_err(e)?;
+    let src = pick(&s, &source)?;
+    Ok(json!({ "ok": true, "options": src.options() }))
 }
 
 #[tauri::command]
@@ -306,6 +323,7 @@ pub fn run() {
             api.set_music_u(store.load());
             let sources = Sources::new(api.clone());
             sources.restore_cookies(|id| store.load_for(id));
+            sources.restore_options(|id, key| store.load_option(id, key));
             let jobs = JobManager::new(sources.clone(), 3, None);
 
             // 任务变化推送给界面，限制为每 200ms 最多一次
@@ -349,6 +367,7 @@ pub fn run() {
             set_source_cookie,
             account,
             set_cookie,
+            set_source_option,
             logout,
             qr_start,
             qr_check,

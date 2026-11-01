@@ -31,12 +31,19 @@ export function year(ts: number | null): string {
   return ts ? String(new Date(ts).getFullYear()) : '';
 }
 
+const SOURCE_NAMES: Record<string, [string, string]> = {
+  netease: ['网易云', '网易'],
+  qq: ['QQ音乐', 'QQ'],
+  kuwo: ['酷我音乐', '酷我'],
+  apple: ['Apple Music', 'Apple'],
+};
+
 export function sourceName(id: string): string {
-  return id === 'qq' ? 'QQ音乐' : id === 'kuwo' ? '酷我音乐' : id === 'netease' ? '网易云' : id;
+  return SOURCE_NAMES[id]?.[0] ?? id;
 }
 
 export function sourceShort(id: string): string {
-  return id === 'qq' ? 'QQ' : id === 'kuwo' ? '酷我' : '网易';
+  return SOURCE_NAMES[id]?.[1] ?? id;
 }
 
 /** 歌曲在原平台的网页链接 */

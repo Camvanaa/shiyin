@@ -22,7 +22,7 @@
     </span>
     <span class="acc-txt">
       <span class="acc-name">{app.account?.nickname ?? '登录音源账号'}</span>
-      <span class="acc-sub">{app.account ? '网易云 · 管理账号与凭证' : '登录后可播放会员曲库与高音质'}</span>
+      <span class="acc-sub">{app.account ? '网易云 · 管理账号、凭证与音源选项' : '登录后可播放会员曲库与高音质'}</span>
     </span>
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chev"><path d="m9 6 6 6-6 6" /></svg>
   </button>

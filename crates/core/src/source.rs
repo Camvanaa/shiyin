@@ -46,6 +46,18 @@ pub trait Source: Send + Sync {
         false
     }
 
+    /// 音源级可配置项（如 Apple Music 的商店区域）。默认为空。
+    fn options(&self) -> Vec<SourceOption> {
+        Vec::new()
+    }
+    /// 设置选项值；未知 key 或非法值由实现自行忽略或回落。
+    fn set_option(&self, _key: &str, _value: &str) {}
+
+    /// 凭证说明（登录面板用）：为空表示不支持 Cookie
+    fn cookie_hint(&self) -> &'static str {
+        ""
+    }
+
     /// 按显示尺寸返回封面地址，默认原样返回
     fn sized_cover(&self, url: &str, _size: u32) -> String {
         url.to_owned()
@@ -55,6 +67,16 @@ pub trait Source: Send + Sync {
 }
 
 pub type DynSource = Arc<dyn Source>;
+
+/// 音源级选项的描述，给前端渲染下拉用
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceOption {
+    pub key: String,
+    pub label: String,
+    pub value: String,
+    pub choices: Vec<(String, String)>,
+}
 
 #[derive(Clone)]
 pub struct Sources {
@@ -68,6 +90,7 @@ impl Sources {
             Arc::new(netease),
             Arc::new(crate::providers::kuwo::Kuwo::new()),
             Arc::new(crate::providers::qq::QQ::new()),
+            Arc::new(crate::providers::apple::Apple::new()),
         ];
         Self { list, cache: DataCache::new() }
     }
@@ -137,6 +160,25 @@ impl Sources {
             let env_key = format!("{}_COOKIE", src.id().to_ascii_uppercase());
             src.set_cookie(load(src.id()).or_else(|| std::env::var(env_key).ok()));
         }
+    }
+
+    /// 从持久化存储恢复各音源选项。`load(source, key)` 返回保存过的值。
+    pub fn restore_options(&self, load: impl Fn(&str, &str) -> Option<String>) {
+        for src in &self.list {
+            for opt in src.options() {
+                if let Some(v) = load(src.id(), &opt.key) {
+                    src.set_option(&opt.key, &v);
+                }
+            }
+        }
+    }
+
+    /// 设置某音源的选项并清掉该音源相关缓存（区域切换后内容不同）
+    pub fn set_option(&self, source: &str, key: &str, value: &str) -> Result<()> {
+        let s = self.pick(source)?;
+        s.set_option(key, value);
+        self.cache.invalidate_account_scoped();
+        Ok(())
     }
 
     /// 依次让各音源识别链接；网易短链单独展开

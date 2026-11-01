@@ -93,6 +93,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/account", get(account).delete(logout))
         .route("/account/cookie", post(set_cookie))
         .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
+        .route("/sources/{id}/options", post(set_source_option))
         .route("/qr", post(qr_start))
         .route("/qr/{key}", get(qr_check))
         .route("/jobs", get(list_jobs).post(add_job).delete(clear_jobs))
@@ -166,7 +167,16 @@ async fn sources(State(c): State<Ctx>) -> Json<Value> {
         .sources
         .list()
         .iter()
-        .map(|s| json!({ "id": s.id(), "label": s.label(), "levels": s.levels(), "hasCookie": s.has_cookie() }))
+        .map(|s| {
+            json!({
+                "id": s.id(),
+                "label": s.label(),
+                "levels": s.levels(),
+                "hasCookie": s.has_cookie(),
+                "cookieHint": s.cookie_hint(),
+                "options": s.options(),
+            })
+        })
         .collect();
     Json(json!(list))
 }
@@ -279,6 +289,19 @@ async fn set_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, J
     c.app.sources.on_credentials_changed();
     c.app.store.save_for(&id, Some(&b.cookie))?;
     Ok(Json(json!({ "ok": true, "hasCookie": src.has_cookie() })))
+}
+
+#[derive(Deserialize)]
+struct SourceOptionBody {
+    key: String,
+    value: String,
+}
+
+async fn set_source_option(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<SourceOptionBody>) -> R<Value> {
+    c.app.sources.set_option(&id, &b.key, &b.value)?;
+    c.app.store.save_option(&id, &b.key, &b.value)?;
+    let src = pick(&c, &id)?;
+    Ok(Json(json!({ "ok": true, "options": src.options() })))
 }
 
 async fn clear_source_cookie(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<Value> {

@@ -171,7 +171,7 @@
                 {sourceName(t.source)}
                 {#if player.quality} · {levelLabel(player.quality)}{/if}
                 {#if player.trial} · <span class="warn">仅试听</span>{/if}
-                {#if player.matchedFrom} · 原为 {sourceName(player.matchedFrom)}{/if}
+                {#if player.matchedFrom} · 由 {sourceName(player.matchedFrom)} 播放{/if}
               </div>
             </div>
             <button class="icon-btn" onclick={() => player.retryCurrent()} title="重新加载" aria-label="重新加载"><Icon name="retry" /></button>
