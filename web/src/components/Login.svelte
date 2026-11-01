@@ -11,9 +11,9 @@
   let extCookie = $state('');
   /** 支持凭证的音源（后端给了 cookieHint 的），网易云始终第一 */
   const platforms = $derived(app.sources.filter((x) => x.id === 'netease' || x.cookieHint));
-  import type { QrState } from '../lib/types';
+  import type { Captcha, QrState } from '../lib/types';
 
-  let mode = $state<'qr' | 'cookie'>('qr');
+  let mode = $state<'qr' | 'sms' | 'cookie'>('qr');
   let svg = $state('');
   /** 平台直接下发的二维码图片（QQ 为 PNG data URL） */
   let qrImage = $state('');
@@ -21,6 +21,105 @@
   const info = $derived(app.sources.find((x) => x.id === platform));
   /** 当前平台是否走扫码：网易云未登录 + 第三方支持扫码 */
   const qrActive = $derived(mode === 'qr' && (platform === 'netease' ? !app.account : !!info?.supportsQr));
+
+  // ---- 短信登录（酷我）----
+  let smsStep = $state<1 | 2>(1);
+  let smsCaptcha = $state<Captcha | null>(null);
+  let smsCaptchaLoading = $state(false);
+  let smsMobile = $state('');
+  let smsCode = $state('');      // 图形验证码
+  let smsSms = $state('');       // 短信验证码
+  let smsBusy = $state(false);
+  let smsCountdown = $state(0);
+  let smsErr = $state('');
+  let smsTimer: ReturnType<typeof setInterval> | undefined;
+
+  const smsActive = $derived(mode === 'sms' && !!info?.supportsSms && !info.hasCookie);
+
+  type ExtMode = { id: 'qr' | 'sms' | 'cookie'; label: string };
+  function extModes(i: { supportsQr: boolean; supportsSms: boolean }): ExtMode[] {
+    const m: ExtMode[] = [];
+    if (i.supportsQr) m.push({ id: 'qr', label: '扫码登录' });
+    if (i.supportsSms) m.push({ id: 'sms', label: '短信登录' });
+    m.push({ id: 'cookie', label: 'Cookie' });
+    return m;
+  }
+  // 切换到第三方平台时，mode 落到该平台的第一个可用方式
+  $effect(() => {
+    if (platform === 'netease' || !info) return;
+    const ms = extModes(info);
+    if (!ms.some((m) => m.id === mode)) mode = ms[0].id;
+  });
+
+  function smsTick() {
+    clearInterval(smsTimer);
+    smsCountdown = 60;
+    smsTimer = setInterval(() => {
+      if (--smsCountdown <= 0) clearInterval(smsTimer);
+    }, 1000);
+  }
+  async function loadCaptcha() {
+    smsCaptchaLoading = true;
+    smsErr = '';
+    try {
+      smsCaptcha = await api.sourceSmsCaptcha(platform);
+    } catch (e) {
+      smsErr = (e as Error).message;
+    } finally {
+      smsCaptchaLoading = false;
+    }
+  }
+  async function sendSms() {
+    if (!smsCaptcha || !smsMobile.trim() || !smsCode.trim()) return;
+    smsBusy = true;
+    smsErr = '';
+    try {
+      await api.sourceSmsSend(platform, smsMobile.trim(), smsCaptcha.token, smsCode.trim());
+      smsStep = 2;
+      smsTick();
+      toast.success('短信验证码已发送');
+    } catch (e) {
+      smsErr = (e as Error).message;
+      // 图形验证码错误后刷新
+      loadCaptcha();
+    } finally {
+      smsBusy = false;
+    }
+  }
+  async function submitSms() {
+    if (!smsSms.trim()) return;
+    smsBusy = true;
+    smsErr = '';
+    try {
+      await api.sourceSmsLogin(platform, smsMobile.trim(), smsSms.trim());
+      app.sources = await api.sources();
+      app.loadHome();
+      toast.success(`${sourceName(platform)} 登录成功`);
+      app.sheet = null;
+    } catch (e) {
+      smsErr = (e as Error).message;
+    } finally {
+      smsBusy = false;
+    }
+  }
+  // 切到短信模式时拉一次图形验证码；离开时清倒计时
+  $effect(() => {
+    if (smsActive && !smsCaptcha) loadCaptcha();
+    if (!smsActive) {
+      clearInterval(smsTimer);
+      smsCountdown = 0;
+    }
+  });
+  // 切换平台时重置短信状态
+  $effect(() => {
+    platform;
+    smsStep = 1;
+    smsCaptcha = null;
+    smsMobile = '';
+    smsCode = '';
+    smsSms = '';
+    smsErr = '';
+  });
   let qrState = $state<QrState | 'loading' | 'error'>('loading');
   let cookie = $state('');
   let saving = $state(false);
@@ -167,15 +266,52 @@
   {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : ':' + mode)}
   <div class="pane">
   {#if platform !== 'netease'}
-    {#if info?.supportsQr && !info.hasCookie}
-      <div class="seg" role="tablist">
-        <button class:on={mode === 'qr'} onclick={() => (mode = 'qr')} role="tab" aria-selected={mode === 'qr'}>扫码登录</button>
-        <button class:on={mode === 'cookie'} onclick={() => (mode = 'cookie')} role="tab" aria-selected={mode === 'cookie'}>Cookie</button>
-        <span class="pill" style:transform="translateX({mode === 'qr' ? 0 : 100}%)"></span>
+    {@const modes = info && !info.hasCookie ? extModes(info) : []}
+    {#if modes.length > 1}
+      <div class="seg" role="tablist" style:--n={modes.length}>
+        {#each modes as m (m.id)}
+          <button class:on={mode === m.id} onclick={() => (mode = m.id)} role="tab" aria-selected={mode === m.id}>{m.label}</button>
+        {/each}
+        <span class="pill" style:transform="translateX({modes.findIndex((m) => m.id === mode) * 100}%)"></span>
       </div>
     {/if}
-    {#if info?.supportsQr && !info.hasCookie && mode === 'qr'}
-      {@render qrView(`打开手机 QQ，扫描二维码登录 ${info.label}`)}
+    {#if qrActive}
+      {@render qrView(`打开手机 QQ，扫描二维码登录 ${info?.label ?? ''}`)}
+    {:else if smsActive}
+      <div class="sms">
+        {#if smsStep === 1}
+          <label class="field">
+            <span>手机号</span>
+            <input class="input" type="tel" inputmode="numeric" maxlength="11" bind:value={smsMobile} placeholder="11 位手机号" autocomplete="tel" />
+          </label>
+          <div class="field captcha-row">
+            <span>图形验证码</span>
+            <div class="captcha">
+              <input class="input" bind:value={smsCode} placeholder="右图字符" maxlength="6" autocomplete="off" spellcheck="false" onkeydown={(e) => e.key === 'Enter' && sendSms()} />
+              <button class="captcha-img" onclick={loadCaptcha} disabled={smsCaptchaLoading} title="点击刷新" aria-label="刷新图形验证码">
+                {#if smsCaptcha?.image}<img src={smsCaptcha.image} alt="验证码" />{:else}<span class="spinner"></span>{/if}
+              </button>
+            </div>
+          </div>
+          <button class="btn primary lg" onclick={sendSms} disabled={smsBusy || !smsMobile.trim() || !smsCode.trim() || !smsCaptcha}>
+            {#if smsBusy}<span class="spinner"></span>{/if}发送短信验证码
+          </button>
+        {:else}
+          <p class="muted">短信已发送到 <b>{smsMobile}</b>，请输入收到的验证码。</p>
+          <label class="field">
+            <span>短信验证码</span>
+            <input class="input" inputmode="numeric" maxlength="8" bind:value={smsSms} placeholder="验证码" autocomplete="one-time-code" onkeydown={(e) => e.key === 'Enter' && submitSms()} />
+          </label>
+          <button class="btn primary lg" onclick={submitSms} disabled={smsBusy || !smsSms.trim()}>
+            {#if smsBusy}<span class="spinner"></span>{/if}登录
+          </button>
+          <button class="btn plain resend" disabled={smsCountdown > 0} onclick={() => { smsStep = 1; smsSms = ''; loadCaptcha(); }}>
+            {smsCountdown > 0 ? `${smsCountdown}s 后可重新发送` : '重新发送'}
+          </button>
+        {/if}
+        {#if smsErr}<p class="err">{smsErr}</p>{/if}
+        <p class="muted small">凭证只保存在{isTauri ? '本机' : '你部署的服务端'}，手机号与验证码仅用于向酷我官方接口换取登录态。</p>
+      </div>
     {:else}
     <div class="cookie">
       {#if info?.options.length}
@@ -221,7 +357,7 @@
       <button class="btn lg" onclick={() => app.logout()}>退出登录</button>
     </div>
   {:else}
-    <div class="seg" role="tablist">
+    <div class="seg" role="tablist" style:--n={2}>
       <button class:on={mode === 'qr'} onclick={() => (mode = 'qr')} role="tab" aria-selected={mode === 'qr'}>扫码登录</button>
       <button class:on={mode === 'cookie'} onclick={() => (mode = 'cookie')} role="tab" aria-selected={mode === 'cookie'}>MUSIC_U</button>
       <span class="pill" style:transform="translateX({mode === 'qr' ? 0 : 100}%)"></span>
@@ -321,7 +457,7 @@
   .seg {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(var(--n, 2), 1fr);
     padding: 2px;
     border-radius: 9px;
     background: var(--bg-2);
@@ -344,11 +480,69 @@
     left: 2px;
     top: 2px;
     bottom: 2px;
-    width: calc(50% - 2px);
+    width: calc((100% - 4px) / var(--n, 2));
     border-radius: 7px;
     background: var(--bg-elev);
     box-shadow: var(--shadow-sm);
     transition: transform var(--t) var(--ease);
+  }
+
+  /* ---- 短信登录表单 ---- */
+  .sms {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--fg-2);
+  }
+  .field .input {
+    font-size: 14px;
+  }
+  .captcha {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .captcha .input {
+    flex: 1;
+    min-width: 0;
+  }
+  .captcha-img {
+    flex: none;
+    width: 110px;
+    border-radius: var(--r-sm);
+    background: #fff;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 0 0.5px var(--line-2);
+    cursor: pointer;
+  }
+  .captcha-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .sms .muted b {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .sms .small {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .resend {
+    align-self: center;
+    margin-top: -4px;
+  }
+  .sms .err {
+    margin: 0;
   }
   .qr-wrap {
     text-align: center;

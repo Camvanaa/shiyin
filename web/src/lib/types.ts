@@ -65,6 +65,12 @@ export interface QrStart {
 
 export type QrState = 'waiting' | 'scanned' | 'expired' | 'success';
 
+export interface Captcha {
+  token: string;
+  /** data URL */
+  image: string;
+}
+
 export type Resolved =
   | { type: 'song'; source: string; id: string }
   | { type: 'playlist'; source: string; id: string }
@@ -85,6 +91,8 @@ export interface SourceInfo {
   hasCookie: boolean;
   /** 是否支持扫码登录 */
   supportsQr: boolean;
+  /** 是否支持手机号短信登录 */
+  supportsSms: boolean;
   /** 桌面版：是否支持应用内网页登录（webview 窗口登录后自动取 cookie） */
   supportsWebLogin: boolean;
   /** 凭证说明；为空表示该音源不支持 Cookie */

@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::api::Netease;
 use crate::cache::DataCache;
 use crate::error::{Error, Result};
-use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, QrStart, QrState, Resolved, SongUrl, Track};
+use crate::model::{Captcha, Collection, CollectionKind, HomeFeed, Lyric, QrStart, QrState, Resolved, SongUrl, Track};
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
@@ -68,6 +68,21 @@ pub trait Source: Send + Sync {
     /// 返回 (状态, 登录成功时的 cookie)
     fn qr_check(&self, _key: &str) -> BoxFut<'_, (QrState, Option<String>)> {
         Box::pin(async { Err(Error::Invalid("该音源不支持扫码登录".into())) })
+    }
+
+    /// 是否支持手机号短信登录（图形验证码 → 短信 → cookie）
+    fn supports_sms(&self) -> bool {
+        false
+    }
+    fn sms_captcha(&self) -> BoxFut<'_, Captcha> {
+        Box::pin(async { Err(Error::Invalid("该音源不支持短信登录".into())) })
+    }
+    fn sms_send<'a>(&'a self, _mobile: &'a str, _captcha_token: &'a str, _captcha_code: &'a str) -> BoxFut<'a, ()> {
+        Box::pin(async { Err(Error::Invalid("该音源不支持短信登录".into())) })
+    }
+    /// 返回登录成功的 cookie
+    fn sms_login<'a>(&'a self, _mobile: &'a str, _sms_code: &'a str) -> BoxFut<'a, String> {
+        Box::pin(async { Err(Error::Invalid("该音源不支持短信登录".into())) })
     }
 
     /// 按显示尺寸返回封面地址，默认原样返回

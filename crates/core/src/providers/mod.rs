@@ -2,6 +2,7 @@
 
 pub mod apple;
 pub mod kuwo;
+pub mod kuwo_login;
 pub mod qq;
 pub mod qq_login;
 

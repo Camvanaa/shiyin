@@ -96,6 +96,9 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/sources/{id}/options", post(set_source_option))
         .route("/sources/{id}/qr", post(source_qr_start))
         .route("/sources/{id}/qr/{key}", get(source_qr_check))
+        .route("/sources/{id}/sms/captcha", get(source_sms_captcha))
+        .route("/sources/{id}/sms/send", post(source_sms_send))
+        .route("/sources/{id}/sms/login", post(source_sms_login))
         .route("/qr", post(qr_start))
         .route("/qr/{key}", get(qr_check))
         .route("/jobs", get(list_jobs).post(add_job).delete(clear_jobs))
@@ -177,6 +180,7 @@ async fn sources(State(c): State<Ctx>) -> Json<Value> {
                 "hasCookie": s.has_cookie(),
                 "cookieHint": s.cookie_hint(),
                 "supportsQr": s.supports_qr(),
+                "supportsSms": s.supports_sms(),
                 "supportsWebLogin": false,
                 "options": s.options(),
             })
@@ -367,6 +371,42 @@ async fn qr_check(State(c): State<Ctx>, UrlPath(key): UrlPath<String>) -> R<Valu
         account = c.app.api.account().await.ok().flatten();
     }
     Ok(Json(json!({ "state": state, "account": account })))
+}
+
+async fn source_sms_captcha(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<shiyin_core::Captcha> {
+    let src = pick(&c, &id)?;
+    Ok(Json(src.sms_captcha().await?))
+}
+
+#[derive(Deserialize)]
+struct SmsSendBody {
+    mobile: String,
+    #[serde(rename = "captchaToken")]
+    captcha_token: String,
+    #[serde(rename = "captchaCode")]
+    captcha_code: String,
+}
+
+async fn source_sms_send(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<SmsSendBody>) -> R<Value> {
+    let src = pick(&c, &id)?;
+    src.sms_send(&b.mobile, &b.captcha_token, &b.captcha_code).await?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct SmsLoginBody {
+    mobile: String,
+    #[serde(rename = "smsCode")]
+    sms_code: String,
+}
+
+async fn source_sms_login(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<SmsLoginBody>) -> R<Value> {
+    let src = pick(&c, &id)?;
+    let cookie = src.sms_login(&b.mobile, &b.sms_code).await?;
+    src.set_cookie(Some(cookie.clone()));
+    c.app.store.save_for(&id, Some(&cookie))?;
+    c.app.sources.on_credentials_changed();
+    Ok(Json(json!({ "ok": true, "hasCookie": src.has_cookie() })))
 }
 
 async fn source_qr_start(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<shiyin_core::QrStart> {

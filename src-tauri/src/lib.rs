@@ -55,11 +55,33 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
                 "hasCookie": x.has_cookie(),
                 "cookieHint": x.cookie_hint(),
                 "supportsQr": x.supports_qr(),
+                "supportsSms": x.supports_sms(),
                 "supportsWebLogin": cfg!(desktop) && matches!(x.id(), "apple" | "kuwo"),
                 "options": x.options(),
             })
         })
         .collect()
+}
+
+#[tauri::command]
+async fn source_sms_captcha(s: State<'_, Ctx>, source: String) -> R<shiyin_core::Captcha> {
+    pick(&s, &source)?.sms_captcha().await.map_err(e)
+}
+
+#[tauri::command]
+async fn source_sms_send(s: State<'_, Ctx>, source: String, mobile: String, captcha_token: String, captcha_code: String) -> R<Value> {
+    pick(&s, &source)?.sms_send(&mobile, &captcha_token, &captcha_code).await.map_err(e)?;
+    Ok(json!({ "ok": true }))
+}
+
+#[tauri::command]
+async fn source_sms_login(s: State<'_, Ctx>, source: String, mobile: String, sms_code: String) -> R<Value> {
+    let src = pick(&s, &source)?;
+    let cookie = src.sms_login(&mobile, &sms_code).await.map_err(e)?;
+    src.set_cookie(Some(cookie.clone()));
+    s.store.save_for(&source, Some(&cookie)).map_err(e)?;
+    s.sources.on_credentials_changed();
+    Ok(json!({ "ok": true, "hasCookie": src.has_cookie() }))
 }
 
 #[cfg(desktop)]
@@ -428,6 +450,9 @@ pub fn run() {
             source_qr_start,
             source_qr_check,
             source_web_login,
+            source_sms_captcha,
+            source_sms_send,
+            source_sms_login,
             webview_login_cancel,
             logout,
             qr_start,

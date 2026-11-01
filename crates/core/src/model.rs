@@ -116,6 +116,14 @@ pub struct QrStart {
     pub image: String,
 }
 
+/// 图形验证码（短信登录第一步），image 为 data URL
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Captcha {
+    pub token: String,
+    pub image: String,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum QrState {

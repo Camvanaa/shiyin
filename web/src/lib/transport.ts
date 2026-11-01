@@ -1,6 +1,6 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
-  Account, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
+  Account, Captcha, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
   SongUrl, SourceInfo, SourceOption, Track,
 } from './types';
 
@@ -24,6 +24,9 @@ export interface Api {
   /** 桌面版：应用内网页登录；Web 版不可用 */
   sourceWebLogin?(source: string): Promise<{ hasCookie: boolean }>;
   webLoginCancel?(): Promise<void>;
+  sourceSmsCaptcha(source: string): Promise<Captcha>;
+  sourceSmsSend(source: string, mobile: string, captchaToken: string, captchaCode: string): Promise<void>;
+  sourceSmsLogin(source: string, mobile: string, smsCode: string): Promise<{ hasCookie: boolean }>;
   sourceQrStart(source: string): Promise<QrStart>;
   sourceQrCheck(source: string, key: string): Promise<{ state: QrState; hasCookie: boolean }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
@@ -91,6 +94,9 @@ const httpApi: Api = {
   matchCandidates: (name, artist, skip, level, duration = 0) => http('GET', `/match/all?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}&duration=${duration}`),
   setSourceCookie: (source, cookie) => cookie ? http('POST', `/sources/${enc(source)}/cookie`, { cookie }) : http('DELETE', `/sources/${enc(source)}/cookie`),
   setSourceOption: (source, key, value) => http('POST', `/sources/${enc(source)}/options`, { key, value }),
+  sourceSmsCaptcha: (source) => http('GET', `/sources/${enc(source)}/sms/captcha`),
+  sourceSmsSend: (source, mobile, captchaToken, captchaCode) => http('POST', `/sources/${enc(source)}/sms/send`, { mobile, captchaToken, captchaCode }),
+  sourceSmsLogin: (source, mobile, smsCode) => http('POST', `/sources/${enc(source)}/sms/login`, { mobile, smsCode }),
   sourceQrStart: (source) => http('POST', `/sources/${enc(source)}/qr`),
   sourceQrCheck: (source, key) => http('GET', `/sources/${enc(source)}/qr/${enc(key)}`),
   account: () => http('GET', '/account'),
@@ -166,6 +172,9 @@ async function tauriApi(): Promise<Api> {
     setSourceOption: (source, key, value) => call('set_source_option', { source, key, value }),
     sourceWebLogin: (source) => call('source_web_login', { source }),
     webLoginCancel: () => call('webview_login_cancel'),
+    sourceSmsCaptcha: (source) => call('source_sms_captcha', { source }),
+    sourceSmsSend: (source, mobile, captchaToken, captchaCode) => call('source_sms_send', { source, mobile, captchaToken, captchaCode }),
+    sourceSmsLogin: (source, mobile, smsCode) => call('source_sms_login', { source, mobile, smsCode }),
     sourceQrStart: (source) => call('source_qr_start', { source }),
     sourceQrCheck: (source, key) => call('source_qr_check', { source, key }),
     account: () => call('account'),

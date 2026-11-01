@@ -11,6 +11,8 @@ use crate::source::{BoxFut, Source};
 pub struct Kuwo {
     http: reqwest::Client,
     cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
+    /// 短信登录会话：手机号 -> 发短信时的上下文
+    pub(crate) sms: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, crate::providers::kuwo_login::SmsSession>>>,
 }
 
 impl Default for Kuwo {
@@ -39,6 +41,7 @@ impl Kuwo {
         Self {
             http,
             cookie: Default::default(),
+            sms: Default::default(),
         }
     }
 
@@ -382,7 +385,23 @@ impl Source for Kuwo {
     }
 
     fn cookie_hint(&self) -> &'static str {
-        "粘贴 kuwo.cn 已登录的 Cookie。"
+        "手机号短信登录，或粘贴 kuwo.cn 已登录的 Cookie。"
+    }
+
+    fn supports_sms(&self) -> bool {
+        true
+    }
+
+    fn sms_captcha(&self) -> BoxFut<'_, Captcha> {
+        Box::pin(Kuwo::sms_captcha(self))
+    }
+
+    fn sms_send<'a>(&'a self, mobile: &'a str, captcha_token: &'a str, captcha_code: &'a str) -> BoxFut<'a, ()> {
+        Box::pin(Kuwo::sms_send(self, mobile, captcha_token, captcha_code))
+    }
+
+    fn sms_login<'a>(&'a self, mobile: &'a str, sms_code: &'a str) -> BoxFut<'a, String> {
+        Box::pin(Kuwo::sms_login(self, mobile, sms_code))
     }
 
     fn is_allowed_media_url(&self, url: &str) -> bool {
