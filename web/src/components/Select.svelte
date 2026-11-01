@@ -26,12 +26,15 @@
   let menu = $state<HTMLElement>();
   /** 弹出方向：空间不够时向上 */
   let up = $state(false);
+  /** 菜单锚点（视口坐标），用 fixed 定位脱离祖先的 overflow 裁剪 */
+  let anchor = $state({ top: 0, bottom: 0, right: 0, width: 0 });
 
   const current = $derived(options.find((o) => o.value === value));
 
   function show() {
     cursor = Math.max(0, options.findIndex((o) => o.value === value));
     const r = btn?.getBoundingClientRect();
+    if (r) anchor = { top: r.top, bottom: r.bottom, right: innerWidth - r.right, width: r.width };
     up = !!r && innerHeight - r.bottom < Math.min(options.length, 7) * 34 + 24 && r.top > innerHeight / 2;
     open = true;
     closing = false;
@@ -80,6 +83,10 @@
       hide();
     }
   }
+  function onAnyScroll(e: Event) {
+    // 菜单自身滚动不关闭；祖先 / 页面滚动时关闭（fixed 菜单不会跟随锚点）
+    if (open && !menu?.contains(e.target as Node)) hide();
+  }
   function onDocClick(e: MouseEvent) {
     if (!open) return;
     const t = e.target as Node;
@@ -88,7 +95,7 @@
   }
 </script>
 
-<svelte:window onclick={onDocClick} onresize={hide} />
+<svelte:window onclick={onDocClick} onresize={hide} onscrollcapture={onAnyScroll} />
 
 <div class="sel" class:compact class:open onkeydown={onKey} role="presentation">
   <button
@@ -106,7 +113,19 @@
 
   {#if open}
     <div class="scrim" class:closing onclick={hide} role="presentation"></div>
-    <div bind:this={menu} class="menu" class:closing class:up role="listbox" aria-label={label || undefined} tabindex="-1">
+    <div
+      bind:this={menu}
+      class="menu"
+      class:closing
+      class:up
+      style:--a-top="{anchor.top}px"
+      style:--a-bottom="{anchor.bottom}px"
+      style:--a-right="{anchor.right}px"
+      style:--a-w="{anchor.width}px"
+      role="listbox"
+      aria-label={label || undefined}
+      tabindex="-1"
+    >
       {#if label}<div class="sheet-title">{label}</div>{/if}
       {#each options as o, i (o.value)}
         <button
@@ -189,11 +208,11 @@
     display: none;
   }
   .menu {
-    position: absolute;
+    position: fixed;
     z-index: 80;
-    top: calc(100% + 6px);
-    right: 0;
-    min-width: max(100%, 168px);
+    top: calc(var(--a-bottom) + 6px);
+    right: var(--a-right);
+    min-width: max(var(--a-w), 168px);
     max-height: min(340px, 60vh);
     overflow: auto;
     padding: 5px;
@@ -207,7 +226,7 @@
   }
   .menu.up {
     top: auto;
-    bottom: calc(100% + 6px);
+    bottom: calc(100vh - var(--a-top) + 6px);
     transform-origin: bottom right;
   }
   .menu.closing {
