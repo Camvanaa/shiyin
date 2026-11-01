@@ -218,7 +218,8 @@ impl Sources {
         }
         // 163cn.tv 短链需要联网展开后再次识别
         if text.contains("163cn.tv") {
-            if let Some(url) = crate::link::first_url(text) {
+            // 只展开真正指向 163cn.tv 的链接，避免把用户文本里其它 URL 交给服务端请求（SSRF）
+            if let Some(url) = crate::link::first_url(text).filter(|u| crate::link::is_163_short_link(u)) {
                 let full = self.expand_short_link(url).await?;
                 for s in &self.list {
                     if let Some(r) = s.parse_link(&full) {

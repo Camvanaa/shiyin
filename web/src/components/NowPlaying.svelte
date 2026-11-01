@@ -201,7 +201,7 @@
             {/each}
           </div>
         {:else}
-          <div class="empty">{player.loading ? '' : '纯音乐，或暂无歌词'}</div>
+          <div class="empty">{player.loading ? '' : player.trial ? '试听片段，未获取到歌词' : '纯音乐，或暂无歌词'}</div>
         {/if}
       </div>
     </div>

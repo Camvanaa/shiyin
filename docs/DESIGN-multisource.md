@@ -11,7 +11,7 @@
 
 ## 模型泛化
 
-- `Track.id: String`，新增 `Track.source: String`（如 `netease` / `qq` / `kuwo`）。
+- `Track.id: String`，新增 `Track.source: String`（如 `netease` / `qq` / `kuwo` / `apple`）。
 - `Track.album_id: String`，`Collection.id: String`，`Collection.source: String`。
 - `Resolved` 携带 `source`，链接识别按音源分发。
 
@@ -47,6 +47,6 @@ trait Source {
 
 ## 前端
 
-- 搜索框左侧音源选择器（全部 / 网易云 / QQ / 酷我）。
+- 搜索框左侧音源选择器（全部 / 网易 / QQ / 酷我 / Apple，随 `/api/sources` 动态生成）。
 - 歌曲行显示来源徽标；播放、下载按 `track.source` 路由。
 - 封面裁剪参数由音源决定（网易云 `?param=`，QQ 用固定尺寸 CDN，酷我原图）。

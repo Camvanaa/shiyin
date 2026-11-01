@@ -236,13 +236,15 @@
 
   .src {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     margin-top: 10px;
   }
   .src button {
     height: 30px;
-    padding: 0;
+    padding: 0 2px;
     font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   section {

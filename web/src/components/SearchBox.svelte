@@ -3,7 +3,7 @@
   import Select from './Select.svelte';
   import { app } from '../lib/app.svelte';
   import { forget, suggest, type HistoryEntry } from '../lib/history.svelte';
-  import { img, LINK_RE } from '../lib/format';
+  import { img, LINK_RE, sourceShort } from '../lib/format';
 
   let value = $state('');
   let focused = $state(false);
@@ -66,7 +66,7 @@
     }
   }
 
-  const srcOptions = $derived([{ value: 'all', label: '全部' }, ...app.sources.map((s) => ({ value: s.id, label: s.label.replace('音乐', '') }))]);
+  const srcOptions = $derived([{ value: 'all', label: '全部' }, ...app.sources.map((s) => ({ value: s.id, label: sourceShort(s.id), hint: s.label }))]);
   const kindIcon = { query: 'clock', song: 'note', playlist: 'list', album: 'disc' } as const;
   const kindLabel = { query: '', song: '歌曲', playlist: '歌单', album: '专辑' } as const;
 </script>
@@ -158,6 +158,14 @@
     align-items: center;
     flex: none;
     margin-left: 4px;
+  }
+  /* 固定宽度：切换音源时分隔线不随文字长度移动 */
+  .srcpick :global(.sel) {
+    width: 72px;
+  }
+  .srcpick :global(.trigger) {
+    width: 100%;
+    justify-content: space-between;
   }
   .divider {
     width: 0.5px;

@@ -519,11 +519,13 @@
     }
     .page-head .seg-ctl {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     }
     .page-head .seg-ctl button {
-      padding: 0 4px;
+      padding: 0 2px;
       height: 28px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     section {
       margin-top: 24px;

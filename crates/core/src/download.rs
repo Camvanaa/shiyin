@@ -243,7 +243,10 @@ pub async fn download(
         drop(file);
         cancel.check()?;
 
-        let format = Format::sniff_file(&part)?;
+        let p = part.clone();
+        let format = tokio::task::spawn_blocking(move || Format::sniff_file(&p))
+            .await
+            .map_err(|e| Error::Tag(e.to_string()))??;
         let merged = lyric.as_ref().map(|l: &Lyric| lrc::merge(&l.lrc, &l.tlrc)).filter(|s| !s.is_empty());
 
         if opts.write_meta {

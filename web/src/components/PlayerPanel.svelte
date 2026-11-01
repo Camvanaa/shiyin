@@ -6,6 +6,7 @@
   import { api } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
   import { artists, duration, img, sourceName } from '../lib/format';
+  import { app } from '../lib/app.svelte';
   import { LEVELS, type MatchCandidate, type Track } from '../lib/types';
 
   // 全屏播放页内部面板：与播放页同色系、同层级，不依赖全局 Sheet。
@@ -105,7 +106,13 @@
     if (dur > 0.12) return '时长差异较大';
     return '';
   }
-  const sourceLevels = $derived(t ? (player.current ? LEVELS : []) : []);
+  // 音质档位按"实际出声的音源"给出：Apple 只有标准档，别的不该显示
+  const audioSource = $derived(t ? player.matchedFrom || t.source : '');
+  const sourceLevels = $derived.by(() => {
+    if (!t || !player.current) return [];
+    const allowed = app.sources.find((s) => s.id === audioSource)?.levels;
+    return allowed?.length ? LEVELS.filter((l) => allowed.includes(l.value)) : LEVELS;
+  });
   const sameTrack = (a: Track, b: Track | null) => !!b && a.id === b.id && a.source === b.source;
 </script>
 

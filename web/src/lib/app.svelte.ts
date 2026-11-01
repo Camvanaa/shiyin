@@ -3,7 +3,7 @@ import { settings, downloadOptions } from './settings.svelte';
 import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
 import { player } from './player.svelte';
-import { artists } from './format';
+import { artists, sourceShort } from './format';
 import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track } from './types';
 
 export type View =
@@ -22,14 +22,10 @@ export type View =
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
 
-function shortLabel(label: string): string {
-  return label.replace('音乐', '');
-}
-
 class AppState {
-  /** 搜索/首页的音源切换 tab：全部 + 当前可用音源，随 sources 变化 */
+  /** 搜索/首页的音源切换 tab：全部 + 当前可用音源，随 sources 变化。用短名，5 个 tab 在手机上也放得下 */
   get sourceTabs(): [string, string][] {
-    return [['all', '全部'], ...this.sources.map((s) => [s.id, shortLabel(s.label)] as [string, string])];
+    return [['all', '全部'], ...this.sources.map((s) => [s.id, sourceShort(s.id)] as [string, string])];
   }
 
   view = $state<View>({ kind: 'home' });
@@ -207,7 +203,7 @@ class AppState {
   async submit(input: string) {
     const q = input.trim();
     if (!q) return;
-    const m = q.match(/^(netease|qq|kuwo):(playlist|album|toplist|song):(.+)$/);
+    const m = q.match(/^(netease|qq|kuwo|apple):(playlist|album|toplist|song):(.+)$/);
     if (m) {
       return m[2] === 'song'
         ? this.openSong(m[3], q, m[1])

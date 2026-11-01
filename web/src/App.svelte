@@ -365,6 +365,17 @@
   .src-tabs {
     margin-top: 12px;
   }
+  @media (max-width: 640px) {
+    .src-tabs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    }
+    .src-tabs button {
+      padding: 0 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
   .more {
     display: grid;
     place-items: center;

@@ -304,7 +304,7 @@ impl Source for Apple {
         })
     }
 
-    fn song_url<'a>(&'a self, id: &'a str, level: &'a str) -> BoxFut<'a, SongUrl> {
+    fn song_url<'a>(&'a self, id: &'a str, _level: &'a str) -> BoxFut<'a, SongUrl> {
         Box::pin(async move {
             let t = self.get(&format!("/songs/{id}"), &[]).await?;
             let a = &t["data"][0]["attributes"];
@@ -315,7 +315,8 @@ impl Source for Apple {
             Ok(SongUrl {
                 id: id.to_string(),
                 url,
-                level: level.to_string(),
+                // 试听片段只有一种规格，不随请求的音质变化
+                level: "standard".into(),
                 size: 0,
                 br: 256,
                 format: "m4a".into(),

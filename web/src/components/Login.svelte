@@ -276,7 +276,7 @@
       </div>
     {/if}
     {#if qrActive}
-      {@render qrView(`打开手机 QQ，扫描二维码登录 ${info?.label ?? ''}`)}
+      {@render qrView(platform === 'qq' ? `打开手机 QQ，扫描二维码登录 ${info?.label ?? ''}` : `打开 ${info?.label ?? ''} App，扫描二维码登录`)}
     {:else if smsActive}
       <div class="sms">
         {#if smsStep === 1}
@@ -310,7 +310,7 @@
           </button>
         {/if}
         {#if smsErr}<p class="err">{smsErr}</p>{/if}
-        <p class="muted small">凭证只保存在{isTauri ? '本机' : '你部署的服务端'}，手机号与验证码仅用于向酷我官方接口换取登录态。</p>
+        <p class="muted small">凭证只保存在{isTauri ? '本机' : '你部署的服务端'}，手机号与验证码仅用于向{info?.label ?? '平台'}官方接口换取登录态。</p>
       </div>
     {:else}
     <div class="cookie">
