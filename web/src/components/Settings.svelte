@@ -5,6 +5,7 @@
   import { settings } from '../lib/settings.svelte';
   import { player } from '../lib/player.svelte';
   import { clearHistory } from '../lib/history.svelte';
+  import { clearRecent } from '../lib/recent.svelte';
   import { api, isTauri, token } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
   import { LEVELS } from '../lib/types';
@@ -50,170 +51,245 @@
       api.setConcurrency(c).catch(() => {});
     }
   });
+
+  type Pane = 'quality' | 'download' | 'naming' | 'meta' | 'desktop' | 'general';
+  const panes: { id: Pane; label: string; icon: 'note' | 'download' | 'list' | 'disc' | 'mini' | 'settings' }[] = [
+    { id: 'quality', label: '音质与播放', icon: 'note' },
+    { id: 'download', label: '下载', icon: 'download' },
+    { id: 'naming', label: '文件名', icon: 'list' },
+    { id: 'meta', label: '元数据', icon: 'disc' },
+    ...(isTauri ? [{ id: 'desktop' as Pane, label: '桌面', icon: 'mini' as const }] : []),
+    { id: 'general', label: '通用', icon: 'settings' },
+  ];
+  let pane = $state<Pane>('quality');
 </script>
 
-<Sheet open={app.sheet === 'settings'} onclose={() => (app.sheet = null)} title="设置" width={560}>
-  <section>
-    <h3>音质</h3>
-    <div class="group">
-      <label class="item">
-        <span>播放音质</span>
-        <select bind:value={settings.playLevel}>
-          {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
-        </select>
-      </label>
-      <label class="item">
-        <span>下载音质</span>
-        <select bind:value={settings.level}>
-          {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
-        </select>
-      </label>
-    </div>
-    <div class="group" style="margin-top:8px">
-      <label class="item">
-        <span>无版权或仅试听时自动换源播放</span>
-        <input type="checkbox" class="switch" bind:checked={settings.autoFallback} />
-      </label>
-    </div>
-    <p class="note">{LEVELS.find((l) => l.value === settings.level)?.hint}。高于账号权限时会自动降级；开启自动换源后会在其它平台寻找同名可播版本。</p>
-  </section>
-
-  <section>
-    <h3>下载</h3>
-    <div class="group">
-      {#if isTauri}
-        <div class="item">
-          <span>保存位置</span>
-          <button class="path" onclick={pickDir} title={settings.dir || defaultDir}>
-            <Icon name="folder" /><span class="ellipsis">{settings.dir || defaultDir || '下载'}</span>
-          </button>
-        </div>
-        {#if settings.dir}
-          <div class="item sub">
-            <span></span><button class="btn plain" onclick={() => (settings.dir = '')}>恢复默认</button>
-          </div>
-        {/if}
-        <label class="item">
-          <span>歌单和专辑存入子文件夹</span>
-          <input type="checkbox" class="switch" bind:checked={settings.subfolder} />
-        </label>
-      {/if}
-      <label class="item">
-        <span>同时下载</span>
-        <div class="stepper">
-          <button onclick={() => (settings.concurrency = Math.max(1, settings.concurrency - 1))} aria-label="减少">−</button>
-          <span class="tabular">{settings.concurrency}</span>
-          <button onclick={() => (settings.concurrency = Math.min(10, settings.concurrency + 1))} aria-label="增加">+</button>
-        </div>
-      </label>
-    </div>
-  </section>
-
-  <section>
-    <h3>文件名</h3>
-    <div class="group">
-      <div class="item col">
-        <input class="input mono" bind:value={settings.template} placeholder={'${title} - ${artist}'} spellcheck="false" />
-        <div class="tokens">
-          {#each [['${title}', '歌名'], ['${artist}', '歌手'], ['${album}', '专辑'], ['${track}', '曲目号']] as [v, l]}
-            <button class="token" onclick={() => insert(v)}>{l}</button>
-          {/each}
-          <span class="sep"></span>
-          {#each presets as p}
-            <button class="token ghost" class:on={settings.template === p} onclick={() => (settings.template = p)}>
-              {p.replaceAll('${title}', '歌名').replaceAll('${artist}', '歌手').replaceAll('${album}', '专辑').replaceAll('${track}', '序号')}
-            </button>
-          {/each}
-        </div>
-        <div class="preview">预览：<span class="mono">{preview}.mp3</span></div>
+<Sheet open={app.sheet === 'settings'} onclose={() => (app.sheet = null)} title="设置" width={720} size="lg" bare>
+  <div class="layout">
+    <nav aria-label="设置分类">
+      {#each panes as p (p.id)}
+        <button class="nav-item" class:on={pane === p.id} onclick={() => (pane = p.id)} aria-current={pane === p.id ? 'true' : undefined}>
+          <Icon name={p.icon} size={17} />
+          <span>{p.label}</span>
+        </button>
+      {/each}
+      <div class="nav-foot">
+        <p class="ver">拾音 0.1.0</p>
+        <p class="ver faint">GPL-3.0</p>
       </div>
-    </div>
-  </section>
+    </nav>
 
-  <section>
-    <h3>元数据</h3>
-    <div class="group">
-      <label class="item">
-        <span>写入元数据</span>
-        <input type="checkbox" class="switch" bind:checked={settings.writeMeta} />
-      </label>
-      <div class="sub-items" class:disabled={!settings.writeMeta}>
-        {#each [['writeCover', '封面'], ['compressCover', '封面压缩为 640px'], ['writeArtist', '歌手'], ['writeAlbum', '专辑'], ['writeTrack', '曲目号'], ['writeLyrics', '歌词（含翻译）']] as const as [k, l]}
-          <label class="item">
-            <span>{l}</span>
-            <input type="checkbox" class="switch" bind:checked={settings[k]} disabled={!settings.writeMeta} />
-          </label>
-        {/each}
-      </div>
-      <label class="item">
-        <span>同时保存 .lrc 歌词文件</span>
-        <input type="checkbox" class="switch" bind:checked={settings.lrcFile} />
-      </label>
-    </div>
-  </section>
-
-  {#if isTauri}
-    <section>
-      <h3>桌面</h3>
-      <div class="group">
-        <label class="item">
-          <span>关闭窗口时保留在托盘</span>
-          <input type="checkbox" class="switch" bind:checked={settings.closeToTray} />
-        </label>
-        <label class="item">
-          <span>全局快捷键</span>
-          <input type="checkbox" class="switch" bind:checked={settings.globalShortcuts} />
-        </label>
-      </div>
-      {#if settings.globalShortcuts}
-        <p class="note keys">
-          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd> 播放 / 暂停</span>
-          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> 上一首 / 下一首</span>
-          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>L</kbd> 桌面歌词</span>
-        </p>
-      {/if}
-    </section>
-  {/if}
-
-  <section>
-    <h3>通用</h3>
-    <div class="group">
-      <label class="item">
-        <span>外观</span>
-        <select bind:value={settings.theme}>
-          <option value="system">跟随系统</option>
-          <option value="light">浅色</option>
-          <option value="dark">深色</option>
-        </select>
-      </label>
-      <label class="item">
-        <span>每次搜索数量</span>
-        <select bind:value={settings.searchLimit}>
-          {#each [20, 30, 50, 100] as n}<option value={n}>{n}</option>{/each}
-        </select>
-      </label>
-      <div class="item">
-        <span>搜索记录</span>
-        <button class="btn plain" onclick={() => (clearHistory(), toast.info('已清除搜索记录'))}>清除</button>
-      </div>
-      {#if !isTauri && token.get()}
-        <div class="item">
-          <span>访问口令</span>
-          <button class="btn plain" onclick={() => (token.set(''), location.reload())}>退出</button>
+    <div class="pane">
+      {#key pane}
+        <div class="pane-in">
+          {#if pane === 'quality'}
+            <h3>音质与播放</h3>
+            <div class="group">
+              <label class="item">
+                <span>播放音质</span>
+                <select bind:value={settings.playLevel}>
+                  {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
+                </select>
+              </label>
+              <label class="item">
+                <span>下载音质</span>
+                <select bind:value={settings.level}>
+                  {#each LEVELS as l}<option value={l.value}>{l.label}</option>{/each}
+                </select>
+              </label>
+              <label class="item">
+                <span>无版权或仅试听时自动换源</span>
+                <input type="checkbox" class="switch" bind:checked={settings.autoFallback} />
+              </label>
+            </div>
+            <p class="note">{LEVELS.find((l) => l.value === settings.level)?.hint}。高于账号权限时会自动降级；开启自动换源后会在其它平台寻找同名可播版本。</p>
+          {:else if pane === 'download'}
+            <h3>下载</h3>
+            <div class="group">
+              {#if isTauri}
+                <div class="item">
+                  <span>保存位置</span>
+                  <button class="path" onclick={pickDir} title={settings.dir || defaultDir}>
+                    <Icon name="folder" /><span class="ellipsis">{settings.dir || defaultDir || '下载'}</span>
+                  </button>
+                </div>
+                {#if settings.dir}
+                  <div class="item sub">
+                    <span></span><button class="btn plain" onclick={() => (settings.dir = '')}>恢复默认</button>
+                  </div>
+                {/if}
+                <label class="item">
+                  <span>歌单和专辑存入子文件夹</span>
+                  <input type="checkbox" class="switch" bind:checked={settings.subfolder} />
+                </label>
+              {/if}
+              <label class="item">
+                <span>同时下载</span>
+                <div class="stepper">
+                  <button onclick={() => (settings.concurrency = Math.max(1, settings.concurrency - 1))} aria-label="减少">−</button>
+                  <span class="tabular">{settings.concurrency}</span>
+                  <button onclick={() => (settings.concurrency = Math.min(10, settings.concurrency + 1))} aria-label="增加">+</button>
+                </div>
+              </label>
+            </div>
+            {#if !isTauri}<p class="note">Web 版下载完成后由浏览器保存文件，无法指定目录。</p>{/if}
+          {:else if pane === 'naming'}
+            <h3>文件名</h3>
+            <div class="group">
+              <div class="item col">
+                <input class="input mono" bind:value={settings.template} placeholder={'${title} - ${artist}'} spellcheck="false" />
+                <div class="tokens">
+                  {#each [['${title}', '歌名'], ['${artist}', '歌手'], ['${album}', '专辑'], ['${track}', '曲目号']] as [v, l]}
+                    <button class="token" onclick={() => insert(v)}>{l}</button>
+                  {/each}
+                  <span class="sep"></span>
+                  {#each presets as p}
+                    <button class="token ghost" class:on={settings.template === p} onclick={() => (settings.template = p)}>
+                      {p.replaceAll('${title}', '歌名').replaceAll('${artist}', '歌手').replaceAll('${album}', '专辑').replaceAll('${track}', '序号')}
+                    </button>
+                  {/each}
+                </div>
+                <div class="preview">预览：<span class="mono">{preview}.mp3</span></div>
+              </div>
+            </div>
+          {:else if pane === 'meta'}
+            <h3>元数据</h3>
+            <div class="group">
+              <label class="item">
+                <span>写入元数据</span>
+                <input type="checkbox" class="switch" bind:checked={settings.writeMeta} />
+              </label>
+              <div class="sub-items" class:disabled={!settings.writeMeta}>
+                {#each [['writeCover', '封面'], ['compressCover', '封面压缩为 640px'], ['writeArtist', '歌手'], ['writeAlbum', '专辑'], ['writeTrack', '曲目号'], ['writeLyrics', '歌词（含翻译）']] as const as [k, l]}
+                  <label class="item">
+                    <span>{l}</span>
+                    <input type="checkbox" class="switch" bind:checked={settings[k]} disabled={!settings.writeMeta} />
+                  </label>
+                {/each}
+              </div>
+              <label class="item">
+                <span>同时保存 .lrc 歌词文件</span>
+                <input type="checkbox" class="switch" bind:checked={settings.lrcFile} />
+              </label>
+            </div>
+          {:else if pane === 'desktop'}
+            <h3>桌面</h3>
+            <div class="group">
+              <label class="item">
+                <span>关闭窗口时保留在托盘</span>
+                <input type="checkbox" class="switch" bind:checked={settings.closeToTray} />
+              </label>
+              <label class="item">
+                <span>全局快捷键</span>
+                <input type="checkbox" class="switch" bind:checked={settings.globalShortcuts} />
+              </label>
+            </div>
+            {#if settings.globalShortcuts}
+              <p class="note keys">
+                <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>P</kbd> 播放 / 暂停</span>
+                <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> 上一首 / 下一首</span>
+                <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>L</kbd> 桌面歌词</span>
+              </p>
+            {/if}
+          {:else}
+            <h3>通用</h3>
+            <div class="group">
+              <label class="item">
+                <span>外观</span>
+                <select bind:value={settings.theme}>
+                  <option value="system">跟随系统</option>
+                  <option value="light">浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+              </label>
+              <label class="item">
+                <span>每次搜索数量</span>
+                <select bind:value={settings.searchLimit}>
+                  {#each [20, 30, 50, 100] as n}<option value={n}>{n}</option>{/each}
+                </select>
+              </label>
+              <div class="item">
+                <span>搜索记录</span>
+                <button class="btn plain" onclick={() => (clearHistory(), toast.info('已清除搜索记录'))}>清除</button>
+              </div>
+              <div class="item">
+                <span>最近播放</span>
+                <button class="btn plain" onclick={() => (clearRecent(), toast.info('已清空最近播放'))}>清除</button>
+              </div>
+              {#if !isTauri && token.get()}
+                <div class="item">
+                  <span>访问口令</span>
+                  <button class="btn plain" onclick={() => (token.set(''), location.reload())}>退出</button>
+                </div>
+              {/if}
+            </div>
+          {/if}
         </div>
-      {/if}
+      {/key}
     </div>
-  </section>
-
-  <p class="foot">拾音 0.1.0 · 基于 ML-Netease_url · GPL-3.0</p>
+  </div>
 </Sheet>
 
 <style>
-  section {
-    margin-top: 18px;
+  .layout {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
   }
-  section:first-child {
-    margin-top: 0;
+  nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 6px 8px 10px;
+    background: color-mix(in srgb, var(--bg-2) 60%, transparent);
+    border-right: 0.5px solid var(--line);
+    overflow: auto;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg-2);
+    text-align: left;
+    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .nav-item :global(svg) {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    opacity: 0.85;
+  }
+  .nav-item:hover {
+    background: var(--hover);
+    color: var(--fg);
+  }
+  .nav-item.on {
+    background: var(--accent);
+    color: #fff;
+  }
+  .nav-foot {
+    margin-top: auto;
+    padding: 10px;
+  }
+  .ver {
+    margin: 0;
+    font-size: 11px;
+    color: var(--fg-3);
+  }
+  .pane {
+    min-height: 0;
+    overflow: auto;
+    padding: 18px 20px 24px;
+    overscroll-behavior: contain;
+  }
+  .pane-in {
+    animation: fade var(--t) var(--ease) both;
   }
   h3 {
     margin: 0 0 6px 12px;
@@ -221,6 +297,12 @@
     font-weight: 600;
     color: var(--fg-2);
     letter-spacing: 0.01em;
+  }
+  h3 + .group {
+    margin-top: 0;
+  }
+  .pane-in > h3:not(:first-child) {
+    margin-top: 22px;
   }
   .group {
     border-radius: var(--r);
@@ -421,10 +503,44 @@
     text-align: center;
     color: var(--fg-2);
   }
-  .foot {
-    margin: 22px 0 0;
-    text-align: center;
-    font-size: 11px;
-    color: var(--fg-3);
+  /* ---- 移动端：侧栏转为横向标签条 ---- */
+  @media (max-width: 700px) {
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    nav {
+      flex-direction: row;
+      gap: 6px;
+      padding: 0 14px 10px;
+      background: none;
+      border-right: 0;
+      border-bottom: 0.5px solid var(--line);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    nav::-webkit-scrollbar {
+      display: none;
+    }
+    .nav-item {
+      flex: none;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--bg-2);
+      font-size: 13px;
+    }
+    .nav-item :global(svg) {
+      display: none;
+    }
+    .nav-item.on {
+      background: var(--accent);
+    }
+    .nav-foot {
+      display: none;
+    }
+    .pane {
+      padding: 14px 16px 20px;
+    }
   }
 </style>

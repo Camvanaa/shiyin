@@ -89,7 +89,8 @@
   const vip = (t: number) => (t >= 11 ? '黑胶 SVIP' : t > 0 ? '黑胶 VIP' : '普通用户');
 </script>
 
-<Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={420}>
+<Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={440} size="lg" bare>
+  <div class="wrap">
   <div class="seg-ctl plat" role="tablist">
     {#each [['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as const as [id, label]}
       <button class:on={platform === id} onclick={() => ((platform = id), (extCookie = ''))} role="tab" aria-selected={platform === id}>{label}</button>
@@ -157,12 +158,28 @@
   {/if}
   </div>
   {/key}
+  </div>
 </Sheet>
 
 <style>
-  /* 切换平台 / 登录方式时内容淡入，与壳体高度过渡同步 */
+  /* 恒定尺寸画布：切换平台 / 登录方式时只有内容淡入，壳体不动 */
+  .wrap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px 20px;
+    overflow: auto;
+  }
   .pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     animation: fade var(--t) var(--ease) both;
+  }
+  .plat {
+    flex: none;
   }
   .me {
     display: flex;
@@ -304,5 +321,14 @@
   .cookie .btn {
     width: 100%;
     margin-top: 12px;
+  }
+  @media (max-width: 640px) {
+    .wrap {
+      height: auto;
+      padding: 0 16px 16px;
+    }
+    .pane {
+      justify-content: flex-start;
+    }
   }
 </style>

@@ -10,6 +10,10 @@
     side = false,
     width = 520,
     dismissible = true,
+    /** lg = 恒定大尺寸面板（设置、账号）：壳体尺寸不随内容变化 */
+    size = 'auto',
+    /** 内容区不加内边距，由子组件自行布局（用于带侧栏的面板） */
+    bare = false,
     children,
     actions,
   }: {
@@ -20,6 +24,8 @@
     width?: number;
     /** 为 false 时不显示关闭按钮，点遮罩和 Esc 也不关闭 */
     dismissible?: boolean;
+    size?: 'auto' | 'lg';
+    bare?: boolean;
     children: Snippet;
     actions?: Snippet;
   } = $props();
@@ -39,32 +45,6 @@
       }, 280);
       return () => clearTimeout(t);
     }
-  });
-
-  // 内容切换（如切换标签页）时壳体高度平滑过渡，而不是跟随内容突变。
-  // 仅桌面居中面板需要；侧栏与移动端底部抽屉是固定高度。
-  let inner = $state<HTMLElement>();
-  let bodyH = $state(0);
-  let settled = $state(false);
-  $effect(() => {
-    const el = inner;
-    if (!el || !mounted) {
-      settled = false;
-      bodyH = 0;
-      return;
-    }
-    // borderBoxSize 含 padding；.inner 用 flow-root 建立 BFC，子元素的 margin 不会穿透出去
-    const ro = new ResizeObserver(([e]) => {
-      bodyH = e.borderBoxSize?.[0]?.blockSize ?? e.target.getBoundingClientRect().height;
-    });
-    ro.observe(el);
-    bodyH = el.getBoundingClientRect().height;
-    // 首帧直接定位到初始高度，之后的变化才做过渡
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => (settled = true)));
-    return () => {
-      ro.disconnect();
-      cancelAnimationFrame(id);
-    };
   });
 
   function onKey(e: KeyboardEvent) {
@@ -104,10 +84,10 @@
     class:side
     class:closing
     class:dragging
-    class:settled
+    class:bare
+    class:size-lg={size === 'lg'}
     style:--w="{width}px"
     style:--drag="{dragY}px"
-    style:--body-h={bodyH ? `${bodyH}px` : 'auto'}
     role="dialog"
     aria-modal="true"
     aria-label={title}
@@ -122,7 +102,7 @@
         {/if}
       </div>
     </header>
-    <div class="content"><div class="inner" bind:this={inner}>{@render children()}</div></div>
+    <div class="content">{@render children()}</div>
   </div>
 {/if}
 
@@ -143,7 +123,7 @@
     left: 50%;
     top: 50%;
     width: min(var(--w), calc(100vw - 32px));
-    max-height: min(720px, calc(100vh - 64px));
+    max-height: min(640px, calc(100vh - 64px));
     display: flex;
     flex-direction: column;
     border-radius: var(--r-xl);
@@ -223,20 +203,13 @@
     /* 出现滚动条时宽度不变，避免内容重排导致高度测量抖动 */
     scrollbar-gutter: stable;
   }
-  /* 居中面板：内容区高度跟随内层实际高度并做过渡，避免切换标签页时整块突变 */
-  .sheet:not(.side) .content {
-    flex: none;
-    height: min(var(--body-h), calc(min(720px, 100vh - 64px) - 56px));
+  /* 大尺寸面板：恒定高度，内容在内部切换 / 滚动，壳体不随内容变动 */
+  .sheet.size-lg {
+    height: min(640px, calc(100vh - 64px));
   }
-  .sheet:not(.side).settled .content {
-    transition: height var(--t-slow) var(--ease);
-  }
-  .inner {
-    display: flow-root;
-    padding-bottom: 20px;
-  }
-  .sheet:not(.side) .content {
-    padding-bottom: 0;
+  .sheet.bare .content {
+    padding: 0;
+    overflow: hidden;
   }
 
   @media (max-width: 640px) {
@@ -290,12 +263,10 @@
     .content {
       padding: 0 16px 16px;
     }
-    .sheet:not(.side) .content {
-      height: min(var(--body-h), calc(88dvh - 52px - var(--sab)));
-      padding-bottom: 0;
-    }
-    .inner {
-      padding-bottom: 16px;
+    /* 移动端不做恒定高度：抽屉高度由内容决定，过高时封顶滚动 */
+    .sheet.size-lg {
+      height: auto;
+      max-height: 88dvh;
     }
   }
 </style>
