@@ -85,6 +85,8 @@ export interface SourceInfo {
   hasCookie: boolean;
   /** 是否支持扫码登录 */
   supportsQr: boolean;
+  /** 桌面版：是否支持应用内网页登录（webview 窗口登录后自动取 cookie） */
+  supportsWebLogin: boolean;
   /** 凭证说明；为空表示该音源不支持 Cookie */
   cookieHint: string;
   /** 音源级可配置项（如 Apple Music 商店区域） */

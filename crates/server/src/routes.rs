@@ -177,6 +177,7 @@ async fn sources(State(c): State<Ctx>) -> Json<Value> {
                 "hasCookie": s.has_cookie(),
                 "cookieHint": s.cookie_hint(),
                 "supportsQr": s.supports_qr(),
+                "supportsWebLogin": false,
                 "options": s.options(),
             })
         })

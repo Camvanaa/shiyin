@@ -2,6 +2,8 @@
 use desktop::{set_desktop_prefs, set_lyrics_locked, set_lyrics_window, set_mini_window};
 #[cfg(desktop)]
 mod desktop;
+#[cfg(desktop)]
+mod weblogin;
 
 use std::path::PathBuf;
 
@@ -53,10 +55,47 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
                 "hasCookie": x.has_cookie(),
                 "cookieHint": x.cookie_hint(),
                 "supportsQr": x.supports_qr(),
+                "supportsWebLogin": cfg!(desktop) && matches!(x.id(), "apple" | "kuwo"),
                 "options": x.options(),
             })
         })
         .collect()
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+fn webview_login_cancel(app: tauri::AppHandle) {
+    weblogin::webview_login_cancel(app);
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+fn webview_login_cancel() {}
+
+/// 桌面版：在应用内 webview 里登录指定音源的网站，登录完成后自动保存凭证。
+/// 当前只有 Apple Music 用到（media-user-token 是 httpOnly，手动复制麻烦）。
+#[cfg(desktop)]
+#[tauri::command]
+async fn source_web_login(app: tauri::AppHandle, s: State<'_, Ctx>, source: String) -> R<Value> {
+    // (登录页, 登录态 cookie 名, 是否取整段 cookie, 域名)
+    let (url, marker, whole, domain) = match source.as_str() {
+        "apple" => ("https://music.apple.com/login", "media-user-token", false, "music.apple.com"),
+        "kuwo" => ("https://www.kuwo.cn/", "userid", true, "www.kuwo.cn"),
+        _ => return Err("该音源不支持网页登录".into()),
+    };
+    let label = pick(&s, &source)?.label().to_owned();
+    let value = weblogin::webview_login(app, url.into(), marker.into(), whole, domain.into(), label).await?;
+    let src = pick(&s, &source)?;
+    src.set_cookie(Some(value.clone()));
+    s.store.save_for(&source, Some(&value)).map_err(e)?;
+    s.sources.on_credentials_changed();
+    Ok(json!({ "ok": true, "hasCookie": src.has_cookie() }))
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+async fn source_web_login(_s: State<'_, Ctx>, _source: String) -> R<Value> {
+    Err("移动端不支持应用内网页登录".into())
 }
 
 #[tauri::command]
@@ -388,6 +427,8 @@ pub fn run() {
             set_source_option,
             source_qr_start,
             source_qr_check,
+            source_web_login,
+            webview_login_cancel,
             logout,
             qr_start,
             qr_check,

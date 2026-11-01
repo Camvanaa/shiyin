@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "窗口权限",
-  "windows": ["main", "lyrics", "mini"],
+  "windows": ["main", "lyrics", "mini", "web-login"],
   "permissions": [
     "core:default",
     "core:event:default",

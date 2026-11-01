@@ -118,6 +118,23 @@
   }
 
   const vip = (t: number) => (t >= 11 ? '黑胶 SVIP' : t > 0 ? '黑胶 VIP' : '普通用户');
+
+  let webLoginBusy = $state(false);
+  async function webLogin() {
+    if (!api.sourceWebLogin) return;
+    webLoginBusy = true;
+    try {
+      await api.sourceWebLogin(platform);
+      app.sources = await api.sources();
+      app.loadHome();
+      toast.success(`${sourceName(platform)} 登录成功`);
+    } catch (e) {
+      const msg = (e as Error).message ?? String(e);
+      if (!msg.includes('取消')) toast.error('登录失败', msg);
+    } finally {
+      webLoginBusy = false;
+    }
+  }
 </script>
 
 {#snippet qrView(hint: string)}
@@ -175,6 +192,13 @@
             </div>
           {/each}
         </div>
+      {/if}
+      {#if info?.supportsWebLogin && !info.hasCookie}
+        <button class="btn primary lg weblogin" disabled={webLoginBusy} onclick={webLogin}>
+          {#if webLoginBusy}<span class="spinner"></span>等待登录完成…{:else}在应用内登录 {info.label}{/if}
+        </button>
+        <p class="muted">会打开一个登录窗口，在 {info.label} 官方页面里登录即可（扫码、密码、验证码都在那边完成），登录后窗口自动关闭并保存凭证。密码不经过本应用。</p>
+        <div class="or"><span>或手动粘贴</span></div>
       {/if}
       <p class="muted">
         {info?.cookieHint}当前状态：{info?.hasCookie ? '已配置' : '未配置'}。
@@ -243,6 +267,25 @@
   }
   .plat {
     flex: none;
+  }
+  .weblogin {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 10px;
+    font-size: 12px;
+    color: var(--fg-3);
+  }
+  .or::before,
+  .or::after {
+    content: '';
+    flex: 1;
+    height: 0.5px;
+    background: var(--line);
   }
   .opts {
     border-radius: var(--r);

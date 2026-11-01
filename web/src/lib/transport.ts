@@ -21,6 +21,9 @@ export interface Api {
   matchCandidates(name: string, artist: string, skip: string, level: string, duration?: number): Promise<MatchCandidate[]>;
   setSourceCookie(source: string, cookie: string | null): Promise<{ hasCookie: boolean }>;
   setSourceOption(source: string, key: string, value: string): Promise<{ options: SourceOption[] }>;
+  /** 桌面版：应用内网页登录；Web 版不可用 */
+  sourceWebLogin?(source: string): Promise<{ hasCookie: boolean }>;
+  webLoginCancel?(): Promise<void>;
   sourceQrStart(source: string): Promise<QrStart>;
   sourceQrCheck(source: string, key: string): Promise<{ state: QrState; hasCookie: boolean }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
@@ -161,6 +164,8 @@ async function tauriApi(): Promise<Api> {
     matchCandidates: (name, artist, skip, level, duration = 0) => call('match_candidates', { name, artist, skip, level, duration }),
     setSourceCookie: (source, cookie) => call('set_source_cookie', { source, cookie }),
     setSourceOption: (source, key, value) => call('set_source_option', { source, key, value }),
+    sourceWebLogin: (source) => call('source_web_login', { source }),
+    webLoginCancel: () => call('webview_login_cancel'),
     sourceQrStart: (source) => call('source_qr_start', { source }),
     sourceQrCheck: (source, key) => call('source_qr_check', { source, key }),
     account: () => call('account'),
