@@ -8,6 +8,7 @@
     options,
     label = '',
     compact = false,
+    align = 'right',
     onchange,
   }: {
     value: T;
@@ -16,6 +17,8 @@
     label?: string;
     /** 紧凑：无背景底，只显示文字 + 箭头（用于搜索框内） */
     compact?: boolean;
+    /** 菜单对齐触发按钮的哪一侧 */
+    align?: 'left' | 'right';
     onchange?: (v: T) => void;
   } = $props();
 
@@ -27,19 +30,14 @@
   /** 弹出方向：空间不够时向上 */
   let up = $state(false);
   /** 菜单锚点（视口坐标），用 fixed 定位脱离祖先的 overflow 裁剪 */
-  let anchor = $state({ top: 0, bottom: 0, right: 0, width: 0 });
+  let anchor = $state({ top: 0, bottom: 0, left: 0, right: 0, width: 0 });
 
   const current = $derived(options.find((o) => o.value === value));
 
   function show() {
     cursor = Math.max(0, options.findIndex((o) => o.value === value));
     const r = btn?.getBoundingClientRect();
-    if (r) {
-      // 菜单右边缘对齐按钮右边缘；若会超出视口左侧则改为左对齐
-      const w = Math.max(r.width, 168);
-      const right = innerWidth - r.right;
-      anchor = { top: r.top, bottom: r.bottom, right: r.right - w < 8 ? Math.max(8, innerWidth - r.left - w) : right, width: r.width };
-    }
+    if (r) anchor = { top: r.top, bottom: r.bottom, left: r.left, right: innerWidth - r.right, width: r.width };
     up = !!r && innerHeight - r.bottom < Math.min(options.length, 7) * 34 + 24 && r.top > innerHeight / 2;
     open = true;
     closing = false;
@@ -133,8 +131,10 @@
       class="menu"
       class:closing
       class:up
+      class:left={align === 'left'}
       style:--a-top="{anchor.top}px"
       style:--a-bottom="{anchor.bottom}px"
+      style:--a-left="{anchor.left}px"
       style:--a-right="{anchor.right}px"
       style:--a-w="{anchor.width}px"
       role="listbox"
@@ -243,6 +243,14 @@
     top: auto;
     bottom: calc(100vh - var(--a-top) + 6px);
     transform-origin: bottom right;
+  }
+  .menu.left {
+    right: auto;
+    left: var(--a-left);
+    transform-origin: top left;
+  }
+  .menu.left.up {
+    transform-origin: bottom left;
   }
   .menu.closing {
     animation: menu-out 160ms var(--ease) both;

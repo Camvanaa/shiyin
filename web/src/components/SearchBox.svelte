@@ -77,7 +77,7 @@
   <div class="field">
     {#if app.sources.length}
       <div class="srcpick">
-        <Select compact value={app.source} options={srcOptions} label="音源" onchange={(v) => app.setSource(v)} />
+        <Select compact align="left" value={app.source} options={srcOptions} label="音源" onchange={(v) => app.setSource(v)} />
         <span class="divider"></span>
       </div>
     {/if}
