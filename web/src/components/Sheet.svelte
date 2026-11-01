@@ -12,6 +12,8 @@
     dismissible = true,
     /** lg = 恒定大尺寸面板（设置、账号）：壳体尺寸不随内容变化 */
     size = 'auto',
+    /** size="lg" 时的固定高度（px），默认 640 */
+    height = 640,
     /** 内容区不加内边距，由子组件自行布局（用于带侧栏的面板） */
     bare = false,
     children,
@@ -25,6 +27,7 @@
     /** 为 false 时不显示关闭按钮，点遮罩和 Esc 也不关闭 */
     dismissible?: boolean;
     size?: 'auto' | 'lg';
+    height?: number;
     bare?: boolean;
     children: Snippet;
     actions?: Snippet;
@@ -87,6 +90,7 @@
     class:bare
     class:size-lg={size === 'lg'}
     style:--w="{width}px"
+    style:--h="{height}px"
     style:--drag="{dragY}px"
     role="dialog"
     aria-modal="true"
@@ -205,7 +209,7 @@
   }
   /* 大尺寸面板：恒定高度，内容在内部切换 / 滚动，壳体不随内容变动 */
   .sheet.size-lg {
-    height: min(640px, calc(100vh - 64px));
+    height: min(var(--h), calc(100vh - 64px));
   }
   .sheet.bare .content {
     padding: 0;

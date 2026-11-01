@@ -89,7 +89,7 @@
   const vip = (t: number) => (t >= 11 ? '黑胶 SVIP' : t > 0 ? '黑胶 VIP' : '普通用户');
 </script>
 
-<Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={440} size="lg" bare>
+<Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={440} size="lg" height={560} bare>
   <div class="wrap">
   <div class="seg-ctl plat" role="tablist">
     {#each [['netease', '网易云'], ['qq', 'QQ音乐'], ['kuwo', '酷我']] as const as [id, label]}
@@ -175,8 +175,11 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     animation: fade var(--t) var(--ease) both;
+  }
+  /* 已登录态内容少，居中更稳 */
+  .pane:has(.me) {
+    justify-content: center;
   }
   .plat {
     flex: none;
@@ -327,7 +330,7 @@
       height: auto;
       padding: 0 16px 16px;
     }
-    .pane {
+    .pane:has(.me) {
       justify-content: flex-start;
     }
   }

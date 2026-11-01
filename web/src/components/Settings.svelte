@@ -270,8 +270,11 @@
     color: var(--fg);
   }
   .nav-item.on {
-    background: var(--accent);
-    color: #fff;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .nav-item.on :global(svg) {
+    opacity: 1;
   }
   .nav-foot {
     margin-top: auto;
@@ -535,6 +538,7 @@
     }
     .nav-item.on {
       background: var(--accent);
+      color: #fff;
     }
     .nav-foot {
       display: none;
