@@ -22,14 +22,16 @@ export type View =
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
 
-export const SOURCE_TABS: readonly [string, string][] = [
-  ['all', '全部'],
-  ['netease', '网易云'],
-  ['qq', 'QQ音乐'],
-  ['kuwo', '酷我'],
-];
+function shortLabel(label: string): string {
+  return label.replace('音乐', '');
+}
 
 class AppState {
+  /** 搜索/首页的音源切换 tab：全部 + 当前可用音源，随 sources 变化 */
+  get sourceTabs(): [string, string][] {
+    return [['all', '全部'], ...this.sources.map((s) => [s.id, shortLabel(s.label)] as [string, string])];
+  }
+
   view = $state<View>({ kind: 'home' });
   loading = $state(false);
   error = $state('');

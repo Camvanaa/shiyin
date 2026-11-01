@@ -338,7 +338,7 @@
   }
   .plat {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     margin-bottom: 16px;
   }
   .plat button {
@@ -368,7 +368,7 @@
     }
     .plat {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
       margin-bottom: 18px;
     }
     .plat button {

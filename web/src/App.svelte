@@ -19,7 +19,7 @@
   import SettingsPage from './components/SettingsPage.svelte';
   import DownloadsPage from './components/DownloadsPage.svelte';
 
-  import { app, SOURCE_TABS } from './lib/app.svelte';
+  import { app } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
   import { collectionKindLabel, sourceName, year } from './lib/format';
 
@@ -158,7 +158,7 @@
             >
               {#snippet subhead()}
                 <div class="seg-ctl src-tabs" role="tablist" aria-label="切换搜索音源">
-                  {#each SOURCE_TABS as [id, label] (id)}
+                  {#each app.sourceTabs as [id, label] (id)}
                     <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
                       {label}
                     </button>

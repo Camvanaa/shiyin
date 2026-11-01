@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import { app, SOURCE_TABS } from '../lib/app.svelte';
+  import { app } from '../lib/app.svelte';
   import { history, clearHistory, forget } from '../lib/history.svelte';
   import { recent } from '../lib/recent.svelte';
   import { player } from '../lib/player.svelte';
@@ -82,7 +82,7 @@
   </div>
 
   <div class="seg-ctl src" role="tablist" aria-label="音源">
-    {#each SOURCE_TABS as [id, label] (id)}
+    {#each app.sourceTabs as [id, label] (id)}
       <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>{label}</button>
     {/each}
   </div>
