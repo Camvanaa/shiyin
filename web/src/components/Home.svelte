@@ -148,9 +148,9 @@
         <div class="charts">
           {#each feed.charts.slice(0, 6) as c, i (`${c.source}:${c.id}`)}
             <button class="chart" style:--d="{i * 30}ms" onclick={() => app.openCollection(c.kind || 'toplist', String(c.id), undefined, c.source)}>
+              <span class="chart-rank tabular">{i + 1}</span>
               <span class="chart-art">
                 {#if c.cover}<img use:fade src={img(c.cover, 112)} alt="" decoding="async" loading="lazy" />{/if}
-                <span class="chart-rank">{i + 1}</span>
               </span>
               <span class="chart-txt">
                 <span class="chart-name ellipsis">{c.name}</span>
@@ -664,9 +664,9 @@
     .chart {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       height: 64px;
-      padding: 0 12px 0 10px;
+      padding: 0 12px 0 8px;
       text-align: left;
       color: var(--fg-3);
       position: relative;
@@ -680,7 +680,7 @@
     .chart + .chart::before {
       content: '';
       position: absolute;
-      left: 70px;
+      left: 94px;
       right: 0;
       top: 0;
       height: 0.5px;
@@ -702,20 +702,15 @@
       object-fit: cover;
     }
     .chart-rank {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      border-radius: 0 6px 0 0;
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 18px;
+      width: 18px;
+      flex: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-3);
       text-align: center;
-      font-variant-numeric: tabular-nums;
+    }
+    .chart:nth-child(-n + 3) .chart-rank {
+      color: var(--fg);
     }
     .chart-txt {
       flex: 1;

@@ -156,9 +156,9 @@
     <div class="charts">
       {#each charts as c, i (c.source + ':' + c.id)}
         <button class="row chart" onclick={() => app.openCollection(c.kind, c.id, undefined, c.source)}>
+          <span class="rank tabular">{i + 1}</span>
           <span class="r-cover">
             {#if c.cover}<img src={img(c.cover, 64)} alt="" width="44" height="44" loading="lazy" decoding="async" />{:else}<Icon name="list" size={18} />{/if}
-            <span class="rank">{i + 1}</span>
           </span>
           <span class="r-text">
             <span class="r-name ellipsis">{c.name}</span>
@@ -300,20 +300,28 @@
     overflow: hidden;
   }
   .rank {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 0 5px 0 0;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    font-size: 9.5px;
-    font-weight: 700;
-    line-height: 16px;
+    width: 16px;
+    flex: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg-3);
     text-align: center;
-    font-variant-numeric: tabular-nums;
+  }
+  .chart:nth-child(-n + 3) .rank {
+    color: var(--fg);
+  }
+  .charts .row {
+    gap: 10px;
+    padding-left: 8px;
+  }
+  .charts .row + .row::before {
+    content: '';
+    position: absolute;
+    left: 78px;
+    right: 0;
+    top: 0;
+    height: 0.5px;
+    background: var(--line);
   }
   .sec-head.link {
     width: 100%;

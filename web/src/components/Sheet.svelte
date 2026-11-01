@@ -53,8 +53,9 @@
       bodyH = 0;
       return;
     }
+    // borderBoxSize 含 padding；.inner 用 flow-root 建立 BFC，子元素的 margin 不会穿透出去
     const ro = new ResizeObserver(([e]) => {
-      bodyH = e.contentRect.height;
+      bodyH = e.borderBoxSize?.[0]?.blockSize ?? e.target.getBoundingClientRect().height;
     });
     ro.observe(el);
     bodyH = el.getBoundingClientRect().height;
@@ -231,6 +232,7 @@
     transition: height var(--t-slow) var(--ease);
   }
   .inner {
+    display: flow-root;
     padding-bottom: 20px;
   }
   .sheet:not(.side) .content {

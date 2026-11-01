@@ -4,10 +4,14 @@
   import { player } from '../lib/player.svelte';
   import { clearRecent, recent } from '../lib/recent.svelte';
   import { toast } from '../lib/toast.svelte';
+  import { fade } from '../lib/fade';
+  import { img } from '../lib/format';
 
   let { scroller }: { scroller: HTMLElement | undefined } = $props();
 
   const tracks = $derived(recent.items);
+  /** 最近 4 首的封面拼成 2×2 封面墙 */
+  const mosaic = $derived(tracks.slice(0, 4).map((t) => t.cover));
   const total = $derived(tracks.reduce((s, t) => s + t.duration, 0));
 
   function hours(ms: number) {
@@ -17,9 +21,19 @@
 </script>
 
 <header class="head">
-  <div class="icon"><Icon name="clock" size={26} /></div>
+  <div class="icon" class:mosaic={mosaic.length >= 4}>
+    {#if mosaic.length >= 4}
+      {#each mosaic as c, i (i)}
+        <img use:fade src={img(c, 120)} alt="" decoding="async" />
+      {/each}
+    {:else if mosaic.length}
+      <img use:fade class="single" src={img(mosaic[0], 240)} alt="" decoding="async" />
+    {:else}
+      <Icon name="clock" size={26} />
+    {/if}
+  </div>
   <div class="info">
-    <div class="eyebrow">最近播放</div>
+    <div class="eyebrow">播放记录</div>
     <h1>最近播放</h1>
     <div class="meta muted">
       {#if tracks.length}{tracks.length} 首{#if total} · {hours(total)}{/if}{:else}暂无记录{/if}
@@ -53,15 +67,26 @@
     animation: rise var(--t-slow) var(--ease-out) backwards;
   }
   .icon {
-    width: 120px;
-    height: 120px;
+    width: 160px;
+    height: 160px;
     flex: none;
     display: grid;
     place-items: center;
     border-radius: var(--r-lg);
+    overflow: hidden;
     background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
     box-shadow: var(--cover-shadow);
     color: var(--fg-2);
+  }
+  .icon.mosaic {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0;
+  }
+  .icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .info {
     min-width: 0;
@@ -103,8 +128,8 @@
       padding: 8px 0 20px;
     }
     .icon {
-      width: 96px;
-      height: 96px;
+      width: min(50vw, 180px);
+      height: min(50vw, 180px);
       border-radius: var(--r-xl);
     }
     h1 {
