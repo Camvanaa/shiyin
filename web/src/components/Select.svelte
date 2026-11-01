@@ -34,7 +34,12 @@
   function show() {
     cursor = Math.max(0, options.findIndex((o) => o.value === value));
     const r = btn?.getBoundingClientRect();
-    if (r) anchor = { top: r.top, bottom: r.bottom, right: innerWidth - r.right, width: r.width };
+    if (r) {
+      // 菜单右边缘对齐按钮右边缘；若会超出视口左侧则改为左对齐
+      const w = Math.max(r.width, 168);
+      const right = innerWidth - r.right;
+      anchor = { top: r.top, bottom: r.bottom, right: r.right - w < 8 ? Math.max(8, innerWidth - r.left - w) : right, width: r.width };
+    }
     up = !!r && innerHeight - r.bottom < Math.min(options.length, 7) * 34 + 24 && r.top > innerHeight / 2;
     open = true;
     closing = false;
@@ -83,6 +88,15 @@
       hide();
     }
   }
+  /** 挂到 body：祖先若有 transform（如居中面板），fixed 会相对该祖先定位而错位 */
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
   function onAnyScroll(e: Event) {
     // 菜单自身滚动不关闭；祖先 / 页面滚动时关闭（fixed 菜单不会跟随锚点）
     if (open && !menu?.contains(e.target as Node)) hide();
@@ -112,8 +126,9 @@
   </button>
 
   {#if open}
-    <div class="scrim" class:closing onclick={hide} role="presentation"></div>
+    <div use:portal class="scrim" class:closing onclick={hide} role="presentation"></div>
     <div
+      use:portal
       bind:this={menu}
       class="menu"
       class:closing
