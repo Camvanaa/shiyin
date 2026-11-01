@@ -2,7 +2,10 @@
   import Icon from './Icon.svelte';
   import { app, SOURCE_TABS } from '../lib/app.svelte';
   import { history, clearHistory, forget } from '../lib/history.svelte';
-  import { img, LINK_RE } from '../lib/format';
+  import { recent } from '../lib/recent.svelte';
+  import { player } from '../lib/player.svelte';
+  import { artists } from '../lib/format';
+  import { img, LINK_RE, sourceShort } from '../lib/format';
 
   let value = $state('');
   let input = $state<HTMLInputElement>();
@@ -34,12 +37,26 @@
   });
 
   const kindLabel = { song: '歌曲', playlist: '歌单', album: '专辑', query: '' } as const;
-  const charts = [
-    { id: '3778678', name: '热歌榜', source: 'netease', kind: 'playlist', sub: '网易云' },
-    { id: '26', name: '热歌榜', source: 'qq', kind: 'toplist', sub: 'QQ音乐' },
-    { id: '3779629', name: '新歌榜', source: 'netease', kind: 'playlist', sub: '网易云' },
-    { id: '62', name: '飙升榜', source: 'qq', kind: 'toplist', sub: 'QQ音乐' },
-  ] as const;
+  type Chart = { id: string; name: string; source: string; kind: 'playlist' | 'album' | 'toplist'; subtitle: string; cover: string };
+  /** 固定入口：后端 feed 未就绪时也能进榜 */
+  const pinned: Chart[] = [
+    { id: '3778678', name: '热歌榜', source: 'netease', kind: 'playlist', subtitle: '网易云', cover: '' },
+    { id: '26', name: '热歌榜', source: 'qq', kind: 'toplist', subtitle: 'QQ音乐', cover: '' },
+    { id: '3779629', name: '新歌榜', source: 'netease', kind: 'playlist', subtitle: '网易云', cover: '' },
+    { id: '62', name: '飙升榜', source: 'qq', kind: 'toplist', subtitle: 'QQ音乐', cover: '' },
+  ];
+  const charts = $derived.by<Chart[]>(() => {
+    const live: Chart[] = (app.feed?.charts ?? []).slice(0, 8).map((c) => ({
+      id: String(c.id),
+      name: c.name,
+      source: c.source,
+      kind: c.kind || 'toplist',
+      subtitle: c.subtitle || sourceShort(c.source),
+      cover: c.cover,
+    }));
+    const extra = pinned.filter((p) => !live.some((c) => c.id === p.id && c.source === p.source));
+    return live.concat(extra).slice(0, 8);
+  });
 </script>
 
 <div class="ms">
@@ -87,6 +104,29 @@
     </section>
   {/if}
 
+  {#if recent.items.length}
+    <section>
+      <button class="sec-head link" onclick={() => app.openHistory()}>
+        <h3>最近播放</h3>
+        <span class="more-arrow"><Icon name="chevronRight" size={17} stroke={2.2} /></span>
+      </button>
+      <div class="group">
+        {#each recent.items.slice(0, 3) as t, i (`${t.source}:${t.id}`)}
+          <button class="row" onclick={() => player.playList(recent.items, i)}>
+            <span class="r-cover">
+              {#if t.cover}<img src={img(t.cover, 56)} alt="" width="44" height="44" loading="lazy" decoding="async" />{/if}
+            </span>
+            <span class="r-text">
+              <span class="r-name ellipsis">{t.name}</span>
+              <span class="r-sub ellipsis">{artists(t)}</span>
+            </span>
+            <Icon name="play" size={16} />
+          </button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   {#if recentOpened.length}
     <section>
       <div class="sec-head"><h3>最近打开</h3></div>
@@ -113,12 +153,16 @@
 
   <section>
     <div class="sec-head"><h3>排行榜</h3></div>
-    <div class="group two">
-      {#each charts as c (c.source + c.id)}
-        <button class="row" onclick={() => app.openCollection(c.kind, c.id, undefined, c.source)}>
+    <div class="charts">
+      {#each charts as c, i (c.source + ':' + c.id)}
+        <button class="row chart" onclick={() => app.openCollection(c.kind, c.id, undefined, c.source)}>
+          <span class="r-cover">
+            {#if c.cover}<img src={img(c.cover, 64)} alt="" width="44" height="44" loading="lazy" decoding="async" />{:else}<Icon name="list" size={18} />{/if}
+            <span class="rank">{i + 1}</span>
+          </span>
           <span class="r-text">
-            <span class="r-name">{c.name}</span>
-            <span class="r-sub">{c.sub}</span>
+            <span class="r-name ellipsis">{c.name}</span>
+            <span class="r-sub ellipsis">{c.subtitle}</span>
           </span>
           <Icon name="chevronRight" size={16} />
         </button>
@@ -249,23 +293,44 @@
     color: var(--fg-3);
   }
 
-  .group {
+  .group,
+  .charts {
     border-radius: var(--r-lg);
     background: var(--bg-2);
     overflow: hidden;
   }
-  .group.two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    background: none;
-    border-radius: 0;
+  .rank {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 0 5px 0 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
-  .group.two .row {
-    border-radius: var(--r-lg);
-    background: var(--bg-2);
-    height: 60px;
-    padding: 0 12px 0 16px;
+  .sec-head.link {
+    width: 100%;
+    text-align: left;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    color: inherit;
+  }
+  .more-arrow {
+    display: inline-grid;
+    place-items: center;
+    color: var(--fg-3);
+    transition: transform var(--t) var(--ease);
+  }
+  .sec-head.link:active .more-arrow {
+    transform: translateX(2px);
   }
   .row {
     width: 100%;
@@ -292,6 +357,7 @@
     background: var(--line);
   }
   .r-cover {
+    position: relative;
     width: 44px;
     height: 44px;
     border-radius: 8px;

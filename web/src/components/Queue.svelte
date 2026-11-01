@@ -4,9 +4,26 @@
   import Sheet from './Sheet.svelte';
   import { app } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
-  import { artists, duration, img } from '../lib/format';
+  import { artists, duration, img, sourceName } from '../lib/format';
 
   let box = $state<HTMLElement>();
+
+  // 桌面拖拽排序
+  let dragFrom = $state(-1);
+  let dragOver = $state(-1);
+  function onDragStart(e: DragEvent, i: number) {
+    dragFrom = i;
+    e.dataTransfer?.setData('text/plain', String(i));
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  }
+  function onDragOver(e: DragEvent, i: number) {
+    e.preventDefault();
+    dragOver = i;
+  }
+  function onDrop(i: number) {
+    if (dragFrom >= 0) player.move(dragFrom, i);
+    dragFrom = dragOver = -1;
+  }
 
   // 打开时把当前歌曲滚动到可见位置
   $effect(() => {
@@ -29,12 +46,23 @@
     <div class="count muted">{player.queue.length} 首</div>
     <div bind:this={box}>
       {#each player.queue as t, i (t.source + ':' + t.id)}
-        <div class="row" class:cur={i === player.index}>
+        <div
+          class="row"
+          class:cur={i === player.index}
+          class:over={dragOver === i && dragFrom !== i}
+          draggable="true"
+          ondragstart={(e) => onDragStart(e, i)}
+          ondragover={(e) => onDragOver(e, i)}
+          ondragleave={() => (dragOver = -1)}
+          ondrop={() => onDrop(i)}
+          ondragend={() => (dragFrom = dragOver = -1)}
+          role="listitem"
+        >
           <button class="main" onclick={() => player.playAt(i)}>
             <img use:fade src={img(t.cover, 36)} alt="" width="36" height="36" loading="lazy" decoding="async" />
             <span class="txt">
               <span class="name ellipsis">{t.name}</span>
-              <span class="sub ellipsis">{artists(t)}</span>
+              <span class="sub ellipsis">{artists(t)} · {sourceName(t.source)}</span>
             </span>
             <span class="dur tabular">{duration(t.duration)}</span>
           </button>
@@ -73,6 +101,9 @@
   }
   .row.cur .name {
     color: var(--accent);
+  }
+  .row.over {
+    box-shadow: inset 0 2px 0 var(--accent);
   }
   .main {
     flex: 1;

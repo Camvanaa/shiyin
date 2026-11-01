@@ -41,6 +41,31 @@
     }
   });
 
+  // 内容切换（如切换标签页）时壳体高度平滑过渡，而不是跟随内容突变。
+  // 仅桌面居中面板需要；侧栏与移动端底部抽屉是固定高度。
+  let inner = $state<HTMLElement>();
+  let bodyH = $state(0);
+  let settled = $state(false);
+  $effect(() => {
+    const el = inner;
+    if (!el || !mounted) {
+      settled = false;
+      bodyH = 0;
+      return;
+    }
+    const ro = new ResizeObserver(([e]) => {
+      bodyH = e.contentRect.height;
+    });
+    ro.observe(el);
+    bodyH = el.getBoundingClientRect().height;
+    // 首帧直接定位到初始高度，之后的变化才做过渡
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => (settled = true)));
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(id);
+    };
+  });
+
   function onKey(e: KeyboardEvent) {
     if (open && dismissible && e.key === 'Escape') {
       e.stopPropagation();
@@ -78,8 +103,10 @@
     class:side
     class:closing
     class:dragging
+    class:settled
     style:--w="{width}px"
     style:--drag="{dragY}px"
+    style:--body-h={bodyH ? `${bodyH}px` : 'auto'}
     role="dialog"
     aria-modal="true"
     aria-label={title}
@@ -94,7 +121,7 @@
         {/if}
       </div>
     </header>
-    <div class="content">{@render children()}</div>
+    <div class="content"><div class="inner" bind:this={inner}>{@render children()}</div></div>
   </div>
 {/if}
 
@@ -192,6 +219,22 @@
     overflow: auto;
     padding: 0 20px 20px;
     overscroll-behavior: contain;
+    /* 出现滚动条时宽度不变，避免内容重排导致高度测量抖动 */
+    scrollbar-gutter: stable;
+  }
+  /* 居中面板：内容区高度跟随内层实际高度并做过渡，避免切换标签页时整块突变 */
+  .sheet:not(.side) .content {
+    flex: none;
+    height: min(var(--body-h), calc(min(720px, 100vh - 64px) - 56px));
+  }
+  .sheet:not(.side).settled .content {
+    transition: height var(--t-slow) var(--ease);
+  }
+  .inner {
+    padding-bottom: 20px;
+  }
+  .sheet:not(.side) .content {
+    padding-bottom: 0;
   }
 
   @media (max-width: 640px) {
@@ -244,6 +287,13 @@
     }
     .content {
       padding: 0 16px 16px;
+    }
+    .sheet:not(.side) .content {
+      height: min(var(--body-h), calc(88dvh - 52px - var(--sab)));
+      padding-bottom: 0;
+    }
+    .inner {
+      padding-bottom: 16px;
     }
   }
 </style>

@@ -15,6 +15,7 @@
   import MobileTabBar from './components/MobileTabBar.svelte';
   import MobilePlayerPill from './components/MobilePlayerPill.svelte';
   import MobileSearch from './components/MobileSearch.svelte';
+  import RecentView from './components/RecentView.svelte';
 
   import { app, SOURCE_TABS } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
@@ -67,6 +68,8 @@
         return '歌曲';
       case 'collection':
         return collectionKindLabel(v.data.kind);
+      case 'history':
+        return '最近播放';
     }
   });
 </script>
@@ -92,6 +95,9 @@
 
     <div class="top-right">
       <div class="desktop-only">
+        <button class="icon-btn" class:on={v.kind === 'history'} onclick={() => app.openHistory()} aria-label="最近播放" title="最近播放">
+          <Icon name="clock" />
+        </button>
         <button
           class="icon-btn"
           class:on={app.sheet === 'queue'}
@@ -159,6 +165,8 @@
             </CollectionView>
           {:else if v.kind === 'song'}
             <SongView track={v.track} />
+          {:else if v.kind === 'history'}
+            <RecentView {scroller} />
           {:else if v.kind === 'collection'}
             {@const c = v.data}
             <CollectionView

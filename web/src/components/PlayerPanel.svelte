@@ -21,6 +21,23 @@
 
   const t = $derived(player.current);
 
+  // 关闭动画：保留 DOM 直到退场动画结束
+  let mounted = $state(false);
+  let closing = $state(false);
+  $effect(() => {
+    if (open) {
+      mounted = true;
+      closing = false;
+    } else if (mounted) {
+      closing = true;
+      const id = setTimeout(() => {
+        mounted = false;
+        closing = false;
+      }, 300);
+      return () => clearTimeout(id);
+    }
+  });
+
   // ---- 队列 ----
   let box = $state<HTMLElement>();
   $effect(() => {
@@ -92,9 +109,9 @@
   const sameTrack = (a: Track, b: Track | null) => !!b && a.id === b.id && a.source === b.source;
 </script>
 
-{#if open}
-  <div class="scrim" onclick={onclose} role="presentation"></div>
-  <aside class="panel" aria-label="播放面板">
+{#if mounted}
+  <div class="scrim" class:closing onclick={onclose} role="presentation"></div>
+  <aside class="panel" class:closing aria-label="播放面板">
     <header>
       <div class="seg" role="tablist">
         <button class:on={tab === 'queue'} onclick={() => (tab = 'queue')} role="tab" aria-selected={tab === 'queue'}>播放列表</button>
@@ -209,6 +226,10 @@
     background: rgb(0 0 0 / 0.35);
     animation: fade var(--t) var(--ease) both;
   }
+  .scrim.closing {
+    animation: fade-out var(--t) var(--ease) both;
+    pointer-events: none;
+  }
   .panel {
     position: absolute;
     z-index: 6;
@@ -226,8 +247,17 @@
     color: #fff;
     animation: panel-in var(--t-slow) var(--ease) both;
   }
+  .panel.closing {
+    animation: panel-out var(--t) var(--ease) both;
+    pointer-events: none;
+  }
   @keyframes panel-in {
     from {
+      transform: translateX(calc(100% + 20px));
+    }
+  }
+  @keyframes panel-out {
+    to {
       transform: translateX(calc(100% + 20px));
     }
   }
@@ -513,8 +543,16 @@
       padding-bottom: var(--sab);
       animation: panel-up var(--t-sheet) var(--ease) both;
     }
+    .panel.closing {
+      animation: panel-down var(--t) var(--ease) both;
+    }
     @keyframes panel-up {
       from {
+        transform: translateY(100%);
+      }
+    }
+    @keyframes panel-down {
+      to {
         transform: translateY(100%);
       }
     }

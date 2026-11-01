@@ -9,16 +9,24 @@
   import type { PlaylistBrief, Track } from '../lib/types';
 
   const opened = $derived(history.items.filter((h) => h.kind !== 'query').slice(0, 6));
-  const played = $derived(recent.items.slice(0, 6));
+  const played = $derived(recent.items.slice(0, 12));
   const currentKey = $derived(player.current ? `${player.current.source}:${player.current.id}` : '');
   /** 加载完成后的内容；加载中为 null，模板据此渲染骨架 */
   const feed = $derived(app.homeLoading ? null : app.feed);
 
   const kindLabel = { song: '歌曲', playlist: '歌单', album: '专辑', query: '' } as const;
 
-  function playNew(i: number) {
-    const f = feed;
-    if (f?.newSongs.length) player.playList(f.newSongs, i);
+  /** 移动端「最新音乐」按 3 首一页横向分页 */
+  const PAGE = 3;
+  const songPages = $derived.by(() => {
+    const list = feed?.newSongs.slice(0, 12) ?? [];
+    const pages: Track[][] = [];
+    for (let i = 0; i < list.length; i += PAGE) pages.push(list.slice(i, i + PAGE));
+    return pages;
+  });
+
+  function playFrom(list: Track[], i: number) {
+    if (list.length) player.playList(list, i);
   }
 </script>
 
@@ -34,20 +42,34 @@
 
   {#if played.length}
     <section>
-      <div class="sec-head">
+      <button class="sec-head link" onclick={() => app.openHistory()}>
         <h2>最近播放</h2>
-        <button class="btn plain" onclick={() => player.playList(played, 0)}>播放全部</button>
-      </div>
-      <div class="songs">
-        {#each played as t, i (`${t.source}:${t.id}`)}
+        <span class="more-arrow"><Icon name="chevronRight" size={18} stroke={2.2} /></span>
+      </button>
+      <!-- 桌面：3 列紧凑行；移动端：横向滑动的小封面 -->
+      <div class="songs desk">
+        {#each played.slice(0, 6) as t, i (`${t.source}:${t.id}`)}
           {@render songCell(t, i, played)}
+        {/each}
+      </div>
+      <div class="rail">
+        {#each played as t, i (`${t.source}:${t.id}`)}
+          {@const active = `${t.source}:${t.id}` === currentKey}
+          <button class="tile" class:active onclick={() => playFrom(played, i)}>
+            <span class="tile-art">
+              <img use:fade src={img(t.cover, 120)} alt="" decoding="async" loading="lazy" />
+              {#if active}<span class="tile-now"><Icon name={player.playing ? 'pause' : 'play'} size={16} /></span>{/if}
+            </span>
+            <span class="tile-name ellipsis">{t.name}</span>
+            <span class="tile-sub ellipsis">{artists(t)}</span>
+          </button>
         {/each}
       </div>
     </section>
   {/if}
 
   {#if opened.length}
-    <section>
+    <section class="desk">
       <div class="sec-head">
         <h2>最近打开</h2>
         <button class="btn plain" onclick={clearHistory}>清除</button>
@@ -70,7 +92,7 @@
     <div class="sec-head"><h2>推荐歌单</h2></div>
     <div class="shelf">
       {#if feed}
-        {#each feed.playlists.slice(0, 5) as p, i (`${p.source}:${p.id}`)}
+        {#each feed.playlists.slice(0, 10) as p, i (`${p.source}:${p.id}`)}
           {@render playlistCard(p, i)}
         {/each}
       {:else}
@@ -95,11 +117,21 @@
       <section>
         <div class="sec-head">
           <h2>最新音乐</h2>
-          <button class="btn plain" onclick={() => playNew(0)}>播放全部</button>
+          <button class="btn plain" onclick={() => playFrom(feed.newSongs, 0)}>播放全部</button>
         </div>
-        <div class="songs">
+        <div class="songs desk">
           {#each feed.newSongs.slice(0, 9) as t, i (`${t.source}:${t.id}`)}
             {@render songCell(t, i, feed.newSongs)}
+          {/each}
+        </div>
+        <!-- 移动端：每页 3 首，横向翻页 -->
+        <div class="pages">
+          {#each songPages as page, p (p)}
+            <div class="pg">
+              {#each page as t, i (`${t.source}:${t.id}`)}
+                {@render songCell(t, p * PAGE + i, feed.newSongs)}
+              {/each}
+            </div>
           {/each}
         </div>
       </section>
@@ -107,9 +139,25 @@
     {#if feed.charts.length}
       <section>
         <div class="sec-head"><h2>排行榜</h2></div>
-        <div class="shelf">
+        <div class="shelf desk">
           {#each feed.charts.slice(0, 5) as c, i (`${c.source}:${c.id}`)}
             {@render playlistCard(c, i)}
+          {/each}
+        </div>
+        <!-- 移动端：紧凑榜单行 -->
+        <div class="charts">
+          {#each feed.charts.slice(0, 6) as c, i (`${c.source}:${c.id}`)}
+            <button class="chart" style:--d="{i * 30}ms" onclick={() => app.openCollection(c.kind || 'toplist', String(c.id), undefined, c.source)}>
+              <span class="chart-art">
+                {#if c.cover}<img use:fade src={img(c.cover, 112)} alt="" decoding="async" loading="lazy" />{/if}
+                <span class="chart-rank">{i + 1}</span>
+              </span>
+              <span class="chart-txt">
+                <span class="chart-name ellipsis">{c.name}</span>
+                <span class="chart-sub ellipsis">{sourceShort(c.source)}{#if c.subtitle} · {c.subtitle}{/if}</span>
+              </span>
+              <Icon name="chevronRight" size={16} />
+            </button>
           {/each}
         </div>
       </section>
@@ -120,7 +168,7 @@
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
   <button class="card" style:--d="{Math.min(i, 8) * 24}ms" onclick={() => app.openCollection(p.kind || 'playlist', String(p.id), undefined, p.source)}>
     <span class="art">
-      {#if p.cover}<img use:fade src={img(p.cover, 220)} alt="" decoding="async" />{/if}
+      {#if p.cover}<img use:fade src={img(p.cover, 220)} alt="" decoding="async" loading="lazy" />{/if}
       {#if app.source === 'all'}<span class="src-tag">{sourceShort(p.source)}</span>{/if}
       <span class="play-badge" aria-hidden="true"><Icon name="play" /></span>
     </span>
@@ -129,12 +177,12 @@
   </button>
 {/snippet}
 
-{#snippet songCell(t: Track, i: number, list: Track[] = [])}
+{#snippet songCell(t: Track, i: number, list: Track[])}
   {@const active = `${t.source}:${t.id}` === currentKey}
   <div class="song" class:active class:off={t.availability === 'none'}>
-    <button class="s-main" onclick={() => (list.length ? player.playList(list, i) : playNew(i))}>
+    <button class="s-main" onclick={() => playFrom(list, i)}>
       <span class="s-art">
-        <img use:fade src={img(t.cover, 56)} alt="" decoding="async" width="48" height="48" />
+        <img use:fade src={img(t.cover, 56)} alt="" decoding="async" width="48" height="48" loading="lazy" />
         <span class="s-over"><Icon name={active && player.playing ? 'pause' : 'play'} /></span>
       </span>
       <span class="s-txt">
@@ -189,6 +237,24 @@
     justify-content: space-between;
     margin-bottom: 14px;
   }
+  .sec-head.link {
+    width: 100%;
+    text-align: left;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    color: inherit;
+  }
+  .more-arrow {
+    display: inline-grid;
+    place-items: center;
+    color: var(--fg-3);
+    transition: transform var(--t) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .sec-head.link:hover .more-arrow {
+    transform: translateX(2px);
+    color: var(--fg-2);
+  }
   h2 {
     margin: 0;
     font: 700 20px/1.2 var(--font-display);
@@ -200,6 +266,9 @@
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 24px 18px;
+  }
+  .shelf > :nth-child(n + 6) {
+    display: none;
   }
 
   .card {
@@ -216,7 +285,7 @@
     aspect-ratio: 1;
     border-radius: var(--r);
     overflow: hidden;
-    background: var(--bg-2);
+    background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px var(--line);
     transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
   }
@@ -328,7 +397,7 @@
     height: 48px;
     border-radius: var(--r-sm);
     overflow: hidden;
-    background: var(--bg-2);
+    background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
     flex: none;
     box-shadow: inset 0 0 0 0.5px var(--line);
   }
@@ -412,23 +481,41 @@
     margin-top: 0;
   }
 
+  /* 移动端专属元素在桌面不渲染；.desk 在移动端隐藏 */
+  .rail,
+  .pages,
+  .charts {
+    display: none;
+  }
+
   @media (max-width: 960px) and (min-width: 641px) {
     .shelf {
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .shelf > :nth-child(n + 5) {
+      display: none;
     }
     .songs {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
+
+  /* ---------- 移动端：横向滑动 + 分页列表 ---------- */
   @media (max-width: 640px) {
+    .desk {
+      display: none !important;
+    }
+    .home {
+      padding: 0 0 24px;
+    }
     .page-head {
       flex-direction: column;
       align-items: stretch;
       gap: 12px;
-      padding: 2px 0 12px;
+      padding: 2px 0 10px;
     }
     h1 {
-      font-size: 24px;
+      font-size: 28px;
     }
     .page-head .seg-ctl {
       display: grid;
@@ -436,32 +523,216 @@
     }
     .page-head .seg-ctl button {
       padding: 0 4px;
+      height: 28px;
     }
     section {
-      margin-top: 26px;
+      margin-top: 24px;
     }
-    .shelf {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px 12px;
+    .sec-head {
+      margin-bottom: 10px;
+      padding: 0 2px;
     }
-    .songs {
-      grid-template-columns: 1fr;
-      gap: 0;
+    h2 {
+      font-size: 19px;
+    }
+
+    /* 横向滚动容器：左右出血到屏幕边缘，snap 对齐 */
+    .shelf,
+    .rail,
+    .pages {
+      display: flex;
+      gap: 12px;
+      margin: 0 -12px;
+      padding: 2px 12px 6px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 12px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .shelf::-webkit-scrollbar,
+    .rail::-webkit-scrollbar,
+    .pages::-webkit-scrollbar {
+      display: none;
+    }
+    .shelf > :nth-child(n + 5),
+    .shelf > :nth-child(n + 6) {
+      display: flex;
+    }
+    .shelf .card {
+      flex: none;
+      width: 148px;
+      scroll-snap-align: start;
+      animation: none;
+    }
+    .art {
+      border-radius: var(--r);
     }
     .play-badge {
       display: none;
     }
+    .card-title {
+      font-size: 13px;
+    }
+
+    /* 最近播放：小瓦片 */
+    .rail .tile {
+      flex: none;
+      width: 104px;
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      scroll-snap-align: start;
+    }
+    .tile-art {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      border-radius: var(--r);
+      overflow: hidden;
+      background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
+      box-shadow: inset 0 0 0 0.5px var(--line);
+      transition: transform var(--t-fast) var(--ease);
+    }
+    .tile:active .tile-art {
+      transform: scale(0.96);
+    }
+    .tile-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .tile-now {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.42);
+      color: #fff;
+    }
+    .tile-name {
+      margin-top: 6px;
+      font-size: 12.5px;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+    }
+    .tile.active .tile-name {
+      color: var(--accent);
+    }
+    .tile-sub {
+      font-size: 11px;
+      color: var(--fg-2);
+    }
+
+    /* 最新音乐：每页 3 首，页宽 = 视口减去右侧露出的下一页边缘 */
+    .pages .pg {
+      flex: none;
+      width: calc(100vw - 12px - 32px);
+      scroll-snap-align: start;
+    }
     .song {
       padding-right: 0;
     }
-    .dl {
-      opacity: 1;
+    .song::after {
+      left: 60px;
+      right: 0;
     }
     .s-main {
-      height: 58px;
+      height: 56px;
+      gap: 12px;
+      padding: 0 4px 0 2px;
     }
-    .card:active .art {
-      transform: scale(0.96);
+    .dl {
+      opacity: 1;
+      width: 40px;
+      height: 40px;
+      color: var(--fg-3);
+    }
+    .s-name {
+      font-size: 15px;
+    }
+
+    /* 排行榜：紧凑榜单行 */
+    .charts {
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--r-lg);
+      background: var(--bg-2);
+      overflow: hidden;
+    }
+    .chart {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 64px;
+      padding: 0 12px 0 10px;
+      text-align: left;
+      color: var(--fg-3);
+      position: relative;
+      transition: background-color var(--t-fast) var(--ease);
+      animation: rise var(--t-slow) var(--ease-out) backwards;
+      animation-delay: var(--d, 0ms);
+    }
+    .chart:active {
+      background: var(--press);
+    }
+    .chart + .chart::before {
+      content: '';
+      position: absolute;
+      left: 70px;
+      right: 0;
+      top: 0;
+      height: 0.5px;
+      background: var(--line);
+    }
+    .chart-art {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      border-radius: var(--r-sm);
+      overflow: hidden;
+      background: linear-gradient(150deg, var(--bg-3), var(--bg-2));
+      flex: none;
+      box-shadow: inset 0 0 0 0.5px var(--line);
+    }
+    .chart-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .chart-rank {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 0 6px 0 0;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 18px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .chart-txt {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .chart-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--fg);
+      letter-spacing: -0.01em;
+    }
+    .chart-sub {
+      font-size: 12px;
+      color: var(--fg-2);
     }
   }
 </style>

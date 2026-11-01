@@ -12,7 +12,9 @@ export type View =
   | { kind: 'search-home' }
   | { kind: 'search'; q: string; tracks: Track[]; done: boolean; offset: number }
   | { kind: 'song'; track: Track }
-  | { kind: 'collection'; data: Collection };
+  | { kind: 'collection'; data: Collection }
+  /** 最近播放：完整列表页 */
+  | { kind: 'history' };
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
 
@@ -148,6 +150,13 @@ class AppState {
     this.sheet = null;
     this.view = { kind: 'home' };
     this.viewKey++;
+  }
+
+  /** 最近播放页 */
+  openHistory() {
+    this.sheet = null;
+    if (this.view.kind === 'history') return;
+    this.#go({ kind: 'history' });
   }
 
   /** 移动端：进入搜索入口页 */

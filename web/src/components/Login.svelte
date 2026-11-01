@@ -95,6 +95,8 @@
       <button class:on={platform === id} onclick={() => ((platform = id), (extCookie = ''))} role="tab" aria-selected={platform === id}>{label}</button>
     {/each}
   </div>
+  {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : '')}
+  <div class="pane">
   {#if platform !== 'netease'}
     {@const info = app.sources.find((x) => x.id === platform)}
     <div class="cookie">
@@ -153,9 +155,15 @@
     {/if}
   {/if}
   {/if}
+  </div>
+  {/key}
 </Sheet>
 
 <style>
+  /* 切换平台 / 登录方式时内容淡入，与壳体高度过渡同步 */
+  .pane {
+    animation: fade var(--t) var(--ease) both;
+  }
   .me {
     display: flex;
     flex-direction: column;
