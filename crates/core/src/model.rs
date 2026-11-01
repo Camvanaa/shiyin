@@ -109,8 +109,11 @@ pub struct QrStart {
     pub key: String,
     /// 二维码内容（登录链接）
     pub url: String,
-    /// 渲染好的 SVG
+    /// 渲染好的 SVG（网易云为登录链接生成）
     pub svg: String,
+    /// 平台直接下发的二维码图片（data URL）。QQ 扫码接口返回的是 PNG，非空时用它
+    #[serde(default)]
+    pub image: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

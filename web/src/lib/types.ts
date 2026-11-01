@@ -59,6 +59,8 @@ export interface QrStart {
   key: string;
   url: string;
   svg: string;
+  /** 平台直接下发的二维码图片（data URL）；非空时优先于 svg */
+  image: string;
 }
 
 export type QrState = 'waiting' | 'scanned' | 'expired' | 'success';
@@ -81,6 +83,8 @@ export interface SourceInfo {
   label: string;
   levels: string[];
   hasCookie: boolean;
+  /** 是否支持扫码登录 */
+  supportsQr: boolean;
   /** 凭证说明；为空表示该音源不支持 Cookie */
   cookieHint: string;
   /** 音源级可配置项（如 Apple Music 商店区域） */

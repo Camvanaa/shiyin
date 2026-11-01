@@ -94,6 +94,8 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/account/cookie", post(set_cookie))
         .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
         .route("/sources/{id}/options", post(set_source_option))
+        .route("/sources/{id}/qr", post(source_qr_start))
+        .route("/sources/{id}/qr/{key}", get(source_qr_check))
         .route("/qr", post(qr_start))
         .route("/qr/{key}", get(qr_check))
         .route("/jobs", get(list_jobs).post(add_job).delete(clear_jobs))
@@ -174,6 +176,7 @@ async fn sources(State(c): State<Ctx>) -> Json<Value> {
                 "levels": s.levels(),
                 "hasCookie": s.has_cookie(),
                 "cookieHint": s.cookie_hint(),
+                "supportsQr": s.supports_qr(),
                 "options": s.options(),
             })
         })
@@ -363,6 +366,23 @@ async fn qr_check(State(c): State<Ctx>, UrlPath(key): UrlPath<String>) -> R<Valu
         account = c.app.api.account().await.ok().flatten();
     }
     Ok(Json(json!({ "state": state, "account": account })))
+}
+
+async fn source_qr_start(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<shiyin_core::QrStart> {
+    let src = pick(&c, &id)?;
+    Ok(Json(src.qr_start().await?))
+}
+
+/// 第三方音源扫码：成功后直接写入该音源 cookie 并持久化
+async fn source_qr_check(State(c): State<Ctx>, UrlPath((id, key)): UrlPath<(String, String)>) -> R<Value> {
+    let src = pick(&c, &id)?;
+    let (state, cookie) = src.qr_check(&key).await?;
+    if let Some(ck) = &cookie {
+        src.set_cookie(Some(ck.clone()));
+        c.app.store.save_for(&id, Some(ck))?;
+        c.app.sources.on_credentials_changed();
+    }
+    Ok(Json(json!({ "state": state, "hasCookie": src.has_cookie() })))
 }
 
 #[derive(Deserialize)]

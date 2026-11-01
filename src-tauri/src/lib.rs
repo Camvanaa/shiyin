@@ -52,10 +52,28 @@ fn sources(s: State<'_, Ctx>) -> Vec<serde_json::Value> {
                 "levels": x.levels(),
                 "hasCookie": x.has_cookie(),
                 "cookieHint": x.cookie_hint(),
+                "supportsQr": x.supports_qr(),
                 "options": x.options(),
             })
         })
         .collect()
+}
+
+#[tauri::command]
+async fn source_qr_start(s: State<'_, Ctx>, source: String) -> R<QrStart> {
+    pick(&s, &source)?.qr_start().await.map_err(e)
+}
+
+#[tauri::command]
+async fn source_qr_check(s: State<'_, Ctx>, source: String, key: String) -> R<Value> {
+    let src = pick(&s, &source)?;
+    let (state, cookie) = src.qr_check(&key).await.map_err(e)?;
+    if let Some(ck) = &cookie {
+        src.set_cookie(Some(ck.clone()));
+        s.store.save_for(&source, Some(ck)).map_err(e)?;
+        s.sources.on_credentials_changed();
+    }
+    Ok(json!({ "state": state, "hasCookie": src.has_cookie() }))
 }
 
 #[tauri::command]
@@ -368,6 +386,8 @@ pub fn run() {
             account,
             set_cookie,
             set_source_option,
+            source_qr_start,
+            source_qr_check,
             logout,
             qr_start,
             qr_check,

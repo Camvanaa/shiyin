@@ -3,6 +3,7 @@
 pub mod apple;
 pub mod kuwo;
 pub mod qq;
+pub mod qq_login;
 
 use serde_json::Value;
 

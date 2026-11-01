@@ -15,6 +15,7 @@ tracing.workspace = true
 aes = "0.8"
 ecb = { version = "0.1", features = ["std"] }
 md-5 = "0.10"
+sha1 = "0.10"
 base64 = "0.22"
 id3 = { version = "1", default-features = false }
 metaflac = "0.2"

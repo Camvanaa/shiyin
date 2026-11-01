@@ -11,7 +11,11 @@ use crate::source::{BoxFut, Source};
 #[derive(Clone)]
 pub struct QQ {
     http: reqwest::Client,
+    /// 禁止跟随重定向的客户端：扫码登录链路要手动读 Location / 302 响应体
+    pub(crate) raw: reqwest::Client,
     cookie: std::sync::Arc<std::sync::RwLock<Option<String>>>,
+    /// 扫码会话：qrsig -> 完整 cookie 与登录结果（登录需要跨多个请求保持 cookie）
+    pub(crate) qr: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, crate::providers::qq_login::QrSession>>>,
 }
 
 impl Default for QQ {
@@ -35,9 +39,16 @@ impl QQ {
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("qq http");
+        let raw = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("qq raw http");
         Self {
             http,
+            raw,
             cookie: Default::default(),
+            qr: Default::default(),
         }
     }
 
@@ -516,7 +527,20 @@ impl Source for QQ {
     }
 
     fn cookie_hint(&self) -> &'static str {
-        "粘贴 y.qq.com 已登录的 Cookie（需含 uin 与 qqmusic_key）以访问绿钻曲库。"
+        "扫码登录，或粘贴 y.qq.com 已登录的 Cookie（需含 uin 与 qqmusic_key）以访问绿钻曲库。"
+    }
+
+    fn supports_qr(&self) -> bool {
+        true
+    }
+
+    fn qr_start(&self) -> BoxFut<'_, QrStart> {
+        Box::pin(self.qq_qr_start())
+    }
+
+    fn qr_check(&self, key: &str) -> BoxFut<'_, (QrState, Option<String>)> {
+        let key = key.to_owned();
+        Box::pin(async move { self.qq_qr_check(&key).await })
     }
 
     fn is_allowed_media_url(&self, url: &str) -> bool {

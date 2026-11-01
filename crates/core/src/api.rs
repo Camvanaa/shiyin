@@ -361,7 +361,7 @@ impl Netease {
             .dark_color(qrcode::render::svg::Color("currentColor"))
             .light_color(qrcode::render::svg::Color("transparent"))
             .build();
-        Ok(QrStart { key, url, svg })
+        Ok(QrStart { key, url, svg, image: String::new() })
     }
 
     /// 查询扫码状态。成功时返回 MUSIC_U。

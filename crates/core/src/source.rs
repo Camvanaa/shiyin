@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::api::Netease;
 use crate::cache::DataCache;
 use crate::error::{Error, Result};
-use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, Resolved, SongUrl, Track};
+use crate::model::{Collection, CollectionKind, HomeFeed, Lyric, QrStart, QrState, Resolved, SongUrl, Track};
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
@@ -56,6 +56,18 @@ pub trait Source: Send + Sync {
     /// 凭证说明（登录面板用）：为空表示不支持 Cookie
     fn cookie_hint(&self) -> &'static str {
         ""
+    }
+
+    /// 是否支持扫码登录。网易云走独立的 `Netease::qr_*`（有账号信息），这里给其它平台用。
+    fn supports_qr(&self) -> bool {
+        false
+    }
+    fn qr_start(&self) -> BoxFut<'_, QrStart> {
+        Box::pin(async { Err(Error::Invalid("该音源不支持扫码登录".into())) })
+    }
+    /// 返回 (状态, 登录成功时的 cookie)
+    fn qr_check(&self, _key: &str) -> BoxFut<'_, (QrState, Option<String>)> {
+        Box::pin(async { Err(Error::Invalid("该音源不支持扫码登录".into())) })
     }
 
     /// 按显示尺寸返回封面地址，默认原样返回

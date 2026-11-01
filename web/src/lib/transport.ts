@@ -21,6 +21,8 @@ export interface Api {
   matchCandidates(name: string, artist: string, skip: string, level: string, duration?: number): Promise<MatchCandidate[]>;
   setSourceCookie(source: string, cookie: string | null): Promise<{ hasCookie: boolean }>;
   setSourceOption(source: string, key: string, value: string): Promise<{ options: SourceOption[] }>;
+  sourceQrStart(source: string): Promise<QrStart>;
+  sourceQrCheck(source: string, key: string): Promise<{ state: QrState; hasCookie: boolean }>;
   account(): Promise<{ account: Account | null; hasCredential: boolean }>;
   setCookie(musicU: string): Promise<{ account: Account }>;
   logout(): Promise<void>;
@@ -86,6 +88,8 @@ const httpApi: Api = {
   matchCandidates: (name, artist, skip, level, duration = 0) => http('GET', `/match/all?name=${enc(name)}&artist=${enc(artist)}&skip=${enc(skip)}&level=${enc(level)}&duration=${duration}`),
   setSourceCookie: (source, cookie) => cookie ? http('POST', `/sources/${enc(source)}/cookie`, { cookie }) : http('DELETE', `/sources/${enc(source)}/cookie`),
   setSourceOption: (source, key, value) => http('POST', `/sources/${enc(source)}/options`, { key, value }),
+  sourceQrStart: (source) => http('POST', `/sources/${enc(source)}/qr`),
+  sourceQrCheck: (source, key) => http('GET', `/sources/${enc(source)}/qr/${enc(key)}`),
   account: () => http('GET', '/account'),
   setCookie: (musicU) => http('POST', '/account/cookie', { musicU }),
   logout: () => http('DELETE', '/account'),
@@ -157,6 +161,8 @@ async function tauriApi(): Promise<Api> {
     matchCandidates: (name, artist, skip, level, duration = 0) => call('match_candidates', { name, artist, skip, level, duration }),
     setSourceCookie: (source, cookie) => call('set_source_cookie', { source, cookie }),
     setSourceOption: (source, key, value) => call('set_source_option', { source, key, value }),
+    sourceQrStart: (source) => call('source_qr_start', { source }),
+    sourceQrCheck: (source, key) => call('source_qr_check', { source, key }),
     account: () => call('account'),
     setCookie: (musicU) => call('set_cookie', { musicU }),
     logout: () => call('logout'),

@@ -5,7 +5,7 @@
   import { app } from '../lib/app.svelte';
   import { api, isTauri } from '../lib/transport';
   import { toast } from '../lib/toast.svelte';
-  import { sourceShort } from '../lib/format';
+  import { sourceName, sourceShort } from '../lib/format';
 
   let platform = $state('netease');
   let extCookie = $state('');
@@ -15,6 +15,12 @@
 
   let mode = $state<'qr' | 'cookie'>('qr');
   let svg = $state('');
+  /** 平台直接下发的二维码图片（QQ 为 PNG data URL） */
+  let qrImage = $state('');
+  /** 当前平台的元信息 */
+  const info = $derived(app.sources.find((x) => x.id === platform));
+  /** 当前平台是否走扫码：网易云未登录 + 第三方支持扫码 */
+  const qrActive = $derived(mode === 'qr' && (platform === 'netease' ? !app.account : !!info?.supportsQr));
   let qrState = $state<QrState | 'loading' | 'error'>('loading');
   let cookie = $state('');
   let saving = $state(false);
@@ -22,33 +28,54 @@
 
   const open = $derived(app.sheet === 'login');
 
-  // 打开时生成二维码并轮询状态，关闭或切换模式时停止
+  // 打开时生成二维码并轮询状态，关闭 / 切换平台或模式时停止
   $effect(() => {
-    if (!open || mode !== 'qr' || app.account) return;
+    if (!open || !qrActive) return;
+    const src = platform;
+    const isNetease = src === 'netease';
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     const start = async () => {
       qrState = 'loading';
+      svg = '';
+      qrImage = '';
       try {
-        const q = await api.qrStart();
+        const q = isNetease ? await api.qrStart() : await api.sourceQrStart(src);
         if (stopped) return;
         svg = q.svg;
+        qrImage = q.image ?? '';
         qrState = 'waiting';
         const poll = async () => {
           if (stopped) return;
           try {
-            const r = await api.qrCheck(q.key);
-            if (stopped) return;
-            qrState = r.state;
-            if (r.state === 'success') {
-              await app.refreshAccount();
-              toast.success(`欢迎，${app.account?.nickname ?? ''}`);
-              app.sheet = null;
-              return;
+            if (isNetease) {
+              const r = await api.qrCheck(q.key);
+              if (stopped) return;
+              qrState = r.state;
+              if (r.state === 'success') {
+                await app.refreshAccount();
+                toast.success(`欢迎，${app.account?.nickname ?? ''}`);
+                app.sheet = null;
+                return;
+              }
+            } else {
+              const r = await api.sourceQrCheck(src, q.key);
+              if (stopped) return;
+              qrState = r.state;
+              if (r.state === 'success') {
+                app.sources = await api.sources();
+                app.loadHome();
+                toast.success(`${sourceName(src)} 登录成功`);
+                app.sheet = null;
+                return;
+              }
             }
-            if (r.state === 'expired') return;
+            if (qrState === 'expired') return;
           } catch (e) {
+            // 扫码后的换 key 链路失败：展示错误并停止轮询，让用户刷新重试
+            qrState = 'error';
             errMsg = (e as Error).message;
+            return;
           }
           timer = setTimeout(poll, 2000);
         };
@@ -93,6 +120,26 @@
   const vip = (t: number) => (t >= 11 ? '黑胶 SVIP' : t > 0 ? '黑胶 VIP' : '普通用户');
 </script>
 
+{#snippet qrView(hint: string)}
+  <div class="qr-wrap">
+    <div class="qr" class:dim={qrState !== 'waiting'}>
+      {#if qrImage}<img src={qrImage} alt="" />{:else if svg}{@html svg}{/if}
+      {#if qrState === 'loading'}
+        <div class="over"><span class="spinner"></span></div>
+      {:else if qrState === 'scanned'}
+        <div class="over ok"><Icon name="check" size={28} stroke={2.4} /><span>已扫码，请在手机上确认</span></div>
+      {:else if qrState === 'expired' || qrState === 'error'}
+        <div class="over">
+          <span>{qrState === 'expired' ? '二维码已过期' : '登录失败'}</span>
+          <button class="btn" onclick={refresh}>刷新</button>
+        </div>
+      {/if}
+    </div>
+    <p class="muted">{hint}</p>
+    {#if errMsg && qrState === 'error'}<p class="err">{errMsg}</p>{/if}
+  </div>
+{/snippet}
+
 <Sheet {open} onclose={() => (app.sheet = null)} title="音源账号与凭证" width={440} size="lg" height={560} bare>
   <div class="wrap">
   <div class="seg-ctl plat" role="tablist">
@@ -100,10 +147,19 @@
       <button class:on={platform === p.id} onclick={() => ((platform = p.id), (extCookie = ''))} role="tab" aria-selected={platform === p.id}>{sourceShort(p.id)}</button>
     {/each}
   </div>
-  {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : '')}
+  {#key platform + (platform === 'netease' ? (app.account ? ':me' : ':' + mode) : ':' + mode)}
   <div class="pane">
   {#if platform !== 'netease'}
-    {@const info = app.sources.find((x) => x.id === platform)}
+    {#if info?.supportsQr && !info.hasCookie}
+      <div class="seg" role="tablist">
+        <button class:on={mode === 'qr'} onclick={() => (mode = 'qr')} role="tab" aria-selected={mode === 'qr'}>扫码登录</button>
+        <button class:on={mode === 'cookie'} onclick={() => (mode = 'cookie')} role="tab" aria-selected={mode === 'cookie'}>Cookie</button>
+        <span class="pill" style:transform="translateX({mode === 'qr' ? 0 : 100}%)"></span>
+      </div>
+    {/if}
+    {#if info?.supportsQr && !info.hasCookie && mode === 'qr'}
+      {@render qrView(`打开手机 QQ，扫描二维码登录 ${info.label}`)}
+    {:else}
     <div class="cookie">
       {#if info?.options.length}
         <div class="opts">
@@ -131,6 +187,7 @@
         <button class="btn primary lg" disabled={!extCookie.trim()} onclick={async () => { await api.setSourceCookie(platform, extCookie.trim()); extCookie = ''; app.sources = await api.sources(); app.loadHome(); toast.success('凭证已保存'); }}>保存</button>
       </div>
     </div>
+    {/if}
   {:else}
   {#if app.account}
     <div class="me">
@@ -147,23 +204,7 @@
     </div>
 
     {#if mode === 'qr'}
-      <div class="qr-wrap">
-        <div class="qr" class:dim={qrState !== 'waiting'}>
-          {#if svg}{@html svg}{/if}
-          {#if qrState === 'loading'}
-            <div class="over"><span class="spinner"></span></div>
-          {:else if qrState === 'scanned'}
-            <div class="over ok"><Icon name="check" size={28} stroke={2.4} /><span>已扫码，请在手机上确认</span></div>
-          {:else if qrState === 'expired' || qrState === 'error'}
-            <div class="over">
-              <span>{qrState === 'expired' ? '二维码已过期' : '二维码获取失败'}</span>
-              <button class="btn" onclick={refresh}>刷新</button>
-            </div>
-          {/if}
-        </div>
-        <p class="muted">打开网易云音乐 App，扫描二维码登录</p>
-        {#if errMsg && qrState === 'error'}<p class="err">{errMsg}</p>{/if}
-      </div>
+      {@render qrView('打开网易云音乐 App，扫描二维码登录')}
     {:else}
       <div class="cookie">
         <p class="muted">从已登录的网页版 Cookie 中复制 <code>MUSIC_U</code> 的值。凭证只保存在{isTauri ? '本机' : '你部署的服务端'}，不会发送到其他地方。</p>
@@ -279,6 +320,13 @@
     background: #fff;
     color: #000;
     box-shadow: var(--shadow-sm);
+  }
+  .qr img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    /* 平台下发的小尺寸 PNG 放大时保持像素边缘锐利 */
+    image-rendering: pixelated;
   }
   .qr :global(svg) {
     width: 100%;
