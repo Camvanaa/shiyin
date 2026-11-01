@@ -16,6 +16,8 @@
   import MobilePlayerPill from './components/MobilePlayerPill.svelte';
   import MobileSearch from './components/MobileSearch.svelte';
   import RecentView from './components/RecentView.svelte';
+  import SettingsPage from './components/SettingsPage.svelte';
+  import DownloadsPage from './components/DownloadsPage.svelte';
 
   import { app, SOURCE_TABS } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
@@ -56,7 +58,7 @@
   }
 
   const v = $derived(app.view);
-  const showBack = $derived(v.kind !== 'home' && v.kind !== 'search-home');
+  const showBack = $derived(!['home', 'search-home', 'settings', 'downloads'].includes(v.kind));
   const mobileTitle = $derived.by(() => {
     switch (v.kind) {
       case 'home':
@@ -70,6 +72,10 @@
         return collectionKindLabel(v.data.kind);
       case 'history':
         return '最近播放';
+      case 'settings':
+        return '设置';
+      case 'downloads':
+        return '下载';
     }
   });
 </script>
@@ -167,6 +173,10 @@
             <SongView track={v.track} />
           {:else if v.kind === 'history'}
             <RecentView {scroller} />
+          {:else if v.kind === 'settings'}
+            <SettingsPage />
+          {:else if v.kind === 'downloads'}
+            <DownloadsPage />
           {:else if v.kind === 'collection'}
             {@const c = v.data}
             <CollectionView

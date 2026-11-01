@@ -328,10 +328,35 @@
   @media (max-width: 640px) {
     .wrap {
       height: auto;
+      min-height: 60dvh;
       padding: 0 16px 16px;
     }
     .pane:has(.me) {
       justify-content: flex-start;
+    }
+    .plat {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      margin-bottom: 18px;
+    }
+    .plat button {
+      height: 34px;
+      font-size: 14px;
+    }
+    .seg button {
+      height: 34px;
+      font-size: 14px;
+    }
+    .qr {
+      width: 220px;
+      height: 220px;
+    }
+    .cookie p,
+    .qr-wrap p {
+      font-size: 14px;
+    }
+    textarea.input {
+      font-size: 14px;
     }
   }
 </style>

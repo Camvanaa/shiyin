@@ -5,8 +5,8 @@
   type Tab = 'home' | 'search' | 'downloads' | 'settings';
 
   const current = $derived.by<Tab>(() => {
-    if (app.sheet === 'downloads') return 'downloads';
-    if (app.sheet === 'settings') return 'settings';
+    if (app.view.kind === 'downloads') return 'downloads';
+    if (app.view.kind === 'settings') return 'settings';
     if (app.view.kind === 'search' || app.view.kind === 'search-home') return 'search';
     return 'home';
   });
@@ -20,10 +20,10 @@
         app.openSearch();
         break;
       case 'downloads':
-        app.sheet = app.sheet === 'downloads' ? null : 'downloads';
+        app.openTab('downloads');
         break;
       case 'settings':
-        app.sheet = app.sheet === 'settings' ? null : 'settings';
+        app.openTab('settings');
         break;
     }
   }

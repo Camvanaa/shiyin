@@ -14,7 +14,11 @@ export type View =
   | { kind: 'song'; track: Track }
   | { kind: 'collection'; data: Collection }
   /** 最近播放：完整列表页 */
-  | { kind: 'history' };
+  | { kind: 'history' }
+  /** 移动端：设置页（桌面为 Sheet） */
+  | { kind: 'settings' }
+  /** 移动端：下载页（桌面为 Sheet） */
+  | { kind: 'downloads' };
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
 
@@ -122,8 +126,8 @@ class AppState {
 
   #go(v: View, push = true) {
     const cur = this.view;
-    // 搜索入口页是临时态，不进入返回栈
-    if (push && cur.kind !== 'home' && cur.kind !== 'search-home') {
+    // 搜索入口页与 tab 根页面是临时态，不进入返回栈
+    if (push && !['home', 'search-home', 'settings', 'downloads'].includes(cur.kind)) {
       this.#backStack.push($state.snapshot(cur) as View);
     }
     if (this.#backStack.length > 20) this.#backStack.shift();
@@ -150,6 +154,19 @@ class AppState {
     this.sheet = null;
     this.view = { kind: 'home' };
     this.viewKey++;
+  }
+
+  /** 移动端：进入设置 / 下载页面（tab 根页面，不进入返回栈） */
+  openTab(kind: 'settings' | 'downloads') {
+    this.sheet = null;
+    if (this.view.kind === kind) return;
+    this.#ctrl?.abort();
+    this.#backStack = [];
+    this.canBack = false;
+    this.loading = false;
+    this.view = { kind };
+    this.viewKey++;
+    this.error = '';
   }
 
   /** 最近播放页 */
