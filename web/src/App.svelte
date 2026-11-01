@@ -59,10 +59,12 @@
 
   const v = $derived(app.view);
   const showBack = $derived(!['home', 'search-home', 'settings', 'downloads'].includes(v.kind));
+  /** 自带大标题的页面：顶栏小标题仅在滚动后出现 */
+  const hasLargeTitle = $derived(['home', 'settings', 'downloads'].includes(v.kind));
   const mobileTitle = $derived.by(() => {
     switch (v.kind) {
       case 'home':
-        return '发现';
+        return '主页';
       case 'search-home':
       case 'search':
         return '搜索';
@@ -96,7 +98,7 @@
 
     <div class="top-mid">
       <div class="desktop-only"><SearchBox /></div>
-      <div class="mobile-only"><span class="top-title">{mobileTitle}</span></div>
+      <div class="mobile-only"><span class="top-title" class:collapsed={hasLargeTitle && !scrolled}>{mobileTitle}</span></div>
     </div>
 
     <div class="top-right">
@@ -120,7 +122,7 @@
         </button>
         <button class="icon-btn" onclick={() => (app.sheet = 'settings')} aria-label="设置" title="设置 (⌘,)"><Icon name="settings" /></button>
       </div>
-      <button class="avatar" onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
+      <button class="avatar" class:hide-mobile={v.kind === 'settings'} onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
         {#if app.account}
           <img src={app.account.avatar + '?param=64y64'} alt="" width="28" height="28" />
         {:else}
@@ -265,6 +267,11 @@
     font: 600 16px var(--font-display);
     letter-spacing: -0.01em;
     color: var(--fg);
+    transition: opacity var(--t) var(--ease), transform var(--t) var(--ease);
+  }
+  .top-title.collapsed {
+    opacity: 0;
+    transform: translateY(4px);
   }
   .top-right {
     display: flex;
@@ -385,6 +392,9 @@
     }
     .avatar {
       margin-left: 0;
+    }
+    .avatar.hide-mobile {
+      visibility: hidden;
     }
     main {
       scrollbar-gutter: auto;
