@@ -230,7 +230,7 @@
   }
   h3 {
     margin: 0 0 6px 12px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--fg-2);
     letter-spacing: 0.01em;
@@ -247,7 +247,7 @@
     gap: 12px;
     min-height: 44px;
     padding: 6px 12px 6px 14px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     position: relative;
   }
   .item + .item::before,
@@ -278,14 +278,14 @@
   }
   .note {
     margin: 6px 12px 0;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-3);
   }
   .switch {
     appearance: none;
     width: 38px;
     height: 22px;
-    border-radius: 99px;
+    border-radius: var(--r-pill);
     background: var(--line-2);
     position: relative;
     flex: none;
@@ -300,7 +300,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--white);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition: transform var(--t) var(--ease);
   }
@@ -320,14 +320,14 @@
     display: flex;
     align-items: center;
     height: 28px;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     background: var(--bg-elev);
     box-shadow: var(--shadow-sm);
   }
   .stepper button {
     width: 28px;
     height: 28px;
-    font-size: 15px;
+    font-size: var(--fs-callout);
     color: var(--fg-2);
   }
   .stepper button:hover {
@@ -345,10 +345,10 @@
     max-width: 60%;
     height: 28px;
     padding: 0 10px;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     background: var(--bg-elev);
     box-shadow: var(--shadow-sm);
-    font-size: 12px;
+    font-size: var(--fs-caption);
   }
   .path :global(svg) {
     width: 14px;
@@ -358,7 +358,7 @@
   }
   .mono {
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-caption);
   }
   .input.mono {
     background: var(--bg-elev);
@@ -372,10 +372,10 @@
   .token {
     height: 24px;
     padding: 0 9px;
-    border-radius: 6px;
+    border-radius: var(--r-sm);
     background: var(--accent-soft);
     color: var(--accent);
-    font-size: 12px;
+    font-size: var(--fs-caption);
     font-weight: 500;
     transition: transform var(--t-fast) var(--ease);
   }
@@ -398,7 +398,7 @@
   }
   .preview {
     margin-top: 10px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .preview span {
@@ -414,17 +414,17 @@
     min-width: 18px;
     margin-right: 3px;
     padding: 0 4px;
-    border-radius: 4px;
+    border-radius: var(--r-xs);
     border: 0.5px solid var(--line-2);
     background: var(--bg-elev);
-    font: 500 11px/16px var(--font);
+    font: 500 var(--fs-caption2)/16px var(--font);
     text-align: center;
     color: var(--fg-2);
   }
   .foot {
     margin: 28px 0 0;
     text-align: center;
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: var(--fg-3);
   }
 
@@ -435,7 +435,7 @@
     }
     h3 {
       margin: 0 0 8px 16px;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
       font-weight: 400;
       text-transform: none;
       color: var(--fg-2);
@@ -446,7 +446,7 @@
     .item {
       min-height: 48px;
       padding: 8px 14px 8px 16px;
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
     .item + .item::before,
     .sub-items .item::before,
@@ -458,7 +458,7 @@
     }
     .note {
       margin: 8px 16px 0;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
     }
     .switch {
       width: 51px;
@@ -483,16 +483,16 @@
     .stepper button {
       width: 36px;
       height: 32px;
-      font-size: 18px;
+      font-size: var(--fs-title3);
     }
     .path {
       height: 32px;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
     }
     .token {
       height: 30px;
       padding: 0 12px;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
     }
   }
 </style>

@@ -177,10 +177,10 @@
     gap: 6px;
     height: 28px;
     padding: 0 8px 0 10px;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     background: var(--bg-elev);
     box-shadow: var(--shadow-sm);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg);
     max-width: 220px;
     transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
@@ -224,7 +224,7 @@
   }
   .menu {
     position: fixed;
-    z-index: 80;
+    z-index: var(--z-menu);
     top: calc(var(--a-bottom) + 6px);
     right: var(--a-right);
     min-width: max(var(--a-w), 168px);
@@ -279,14 +279,14 @@
     min-height: 30px;
     padding: 4px 10px 4px 6px;
     border-radius: var(--r-sm);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     text-align: left;
     color: var(--fg);
     outline: none;
   }
   .opt.cur {
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
   }
   .opt.cur small {
     color: rgb(255 255 255 / 0.75);
@@ -304,7 +304,7 @@
     gap: 1px;
   }
   small {
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: var(--fg-3);
   }
 
@@ -312,7 +312,7 @@
   @media (max-width: 640px) {
     .trigger {
       height: 32px;
-      font-size: 15px;
+      font-size: var(--fs-callout);
       background: transparent;
       box-shadow: none;
       color: var(--fg-2);
@@ -330,7 +330,7 @@
       display: block;
       position: fixed;
       inset: 0;
-      z-index: 79;
+      z-index: var(--z-sheet);
       background: var(--scrim);
       animation: fade var(--t) var(--ease) both;
     }
@@ -369,7 +369,7 @@
     .sheet-title {
       display: block;
       padding: 10px 14px 8px;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
       font-weight: 600;
       color: var(--fg-2);
       text-align: center;
@@ -377,7 +377,7 @@
     .opt {
       min-height: 48px;
       padding: 6px 14px 6px 10px;
-      font-size: 16px;
+      font-size: var(--fs-body);
       border-radius: var(--r);
     }
     .opt.cur {
@@ -397,7 +397,7 @@
       width: 20px;
     }
     small {
-      font-size: 12px;
+      font-size: var(--fs-caption);
     }
   }
 </style>

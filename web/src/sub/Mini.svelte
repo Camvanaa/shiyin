@@ -101,7 +101,7 @@
     align-items: center;
     gap: 12px;
     padding: 0 12px;
-    border-radius: 14px;
+    border-radius: var(--r-lg);
     overflow: hidden;
     background: var(--bg-elev);
     box-shadow: inset 0 0 0 0.5px var(--line-2);
@@ -128,7 +128,7 @@
     width: 64px;
     height: 64px;
     flex: none;
-    border-radius: 8px;
+    border-radius: var(--r-md);
     overflow: hidden;
     background: var(--bg-3);
     box-shadow: var(--shadow-sm);
@@ -147,13 +147,13 @@
     animation: rise var(--t) var(--ease-out) backwards;
   }
   .name {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
   .sub {
     margin-top: 1px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .ctl {
@@ -214,7 +214,7 @@
   .corner button {
     width: 22px;
     height: 22px;
-    border-radius: 6px;
+    border-radius: var(--r-sm);
     display: grid;
     place-items: center;
     color: var(--fg-3);

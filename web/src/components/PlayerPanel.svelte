@@ -229,7 +229,7 @@
   .scrim {
     position: absolute;
     inset: 0;
-    z-index: 5;
+    z-index: var(--z-local-2);
     background: rgb(0 0 0 / 0.35);
     animation: fade var(--t) var(--ease) both;
   }
@@ -239,7 +239,7 @@
   }
   .panel {
     position: absolute;
-    z-index: 6;
+    z-index: var(--z-local-2);
     top: 10px;
     right: 10px;
     bottom: 10px;
@@ -251,7 +251,7 @@
     -webkit-backdrop-filter: saturate(160%) blur(28px);
     backdrop-filter: saturate(160%) blur(28px);
     box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 24px 64px rgb(0 0 0 / 0.5);
-    color: #fff;
+    color: var(--white);
     animation: panel-in var(--t-slow) var(--ease) both;
   }
   .panel.closing {
@@ -281,27 +281,27 @@
   }
   header .icon-btn:hover {
     background: rgb(255 255 255 / 0.12);
-    color: #fff;
+    color: var(--white);
   }
   .seg {
     display: inline-flex;
     padding: 3px;
-    border-radius: 9px;
+    border-radius: var(--r-md);
     background: rgb(255 255 255 / 0.1);
     gap: 2px;
   }
   .seg button {
     height: 28px;
     padding: 0 12px;
-    border-radius: 7px;
-    font-size: 13px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-footnote);
     font-weight: 500;
     color: rgb(255 255 255 / 0.6);
     transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
   }
   .seg button.on {
     background: rgb(255 255 255 / 0.18);
-    color: #fff;
+    color: var(--white);
   }
   .body {
     flex: 1;
@@ -317,17 +317,17 @@
     padding: 48px 0;
     text-align: center;
     color: rgb(255 255 255 / 0.45);
-    font-size: 14px;
+    font-size: var(--fs-subhead);
   }
   .empty.sm {
     padding: 18px 0;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .meta-row {
     display: flex;
     justify-content: space-between;
     padding: 2px 6px 8px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: rgb(255 255 255 / 0.5);
   }
   .link {
@@ -335,7 +335,7 @@
     font-weight: 500;
   }
   .link:hover {
-    color: #fff;
+    color: var(--white);
   }
 
   .row {
@@ -365,7 +365,7 @@
   }
   .main img,
   .card img {
-    border-radius: 6px;
+    border-radius: var(--r-sm);
     background: rgb(255 255 255 / 0.1);
     flex: none;
     object-fit: cover;
@@ -378,18 +378,18 @@
     gap: 1px;
   }
   .name {
-    font-size: 13.5px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
   }
   .row.cur .name {
-    color: #fff;
+    color: var(--white);
   }
   .sub {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: rgb(255 255 255 / 0.55);
   }
   .dur {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: rgb(255 255 255 / 0.4);
   }
   .ops {
@@ -410,7 +410,7 @@
   }
   .ops .icon-btn:hover {
     background: rgb(255 255 255 / 0.14);
-    color: #fff;
+    color: var(--white);
   }
   .ops .icon-btn:disabled {
     opacity: 0.25;
@@ -433,7 +433,7 @@
   }
   h3 {
     margin: 0 0 8px 6px;
-    font-size: 11.5px;
+    font-size: var(--fs-caption2);
     font-weight: 600;
     letter-spacing: 0.03em;
     color: rgb(255 255 255 / 0.5);
@@ -467,7 +467,7 @@
   }
   .card .icon-btn:hover {
     background: rgb(255 255 255 / 0.14);
-    color: #fff;
+    color: var(--white);
   }
   .warn {
     color: var(--warn);
@@ -480,14 +480,14 @@
     flex: none;
   }
   .src {
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     font-weight: 600;
     padding: 2px 7px;
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     background: rgb(255 255 255 / 0.16);
   }
   .tag small {
-    font-size: 10.5px;
+    font-size: var(--fs-caption2);
     color: rgb(255 255 255 / 0.45);
     white-space: nowrap;
   }
@@ -511,11 +511,11 @@
     transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
   }
   .lvl span {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
   }
   .lvl small {
-    font-size: 10.5px;
+    font-size: var(--fs-caption2);
     color: rgb(255 255 255 / 0.45);
   }
   .lvl:hover {
@@ -530,12 +530,12 @@
     align-items: center;
     gap: 10px;
     padding: 16px 8px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: rgb(255 255 255 / 0.55);
   }
   .loading .spinner {
     border-color: rgb(255 255 255 / 0.2);
-    border-top-color: #fff;
+    border-top-color: var(--white);
   }
 
   @media (max-width: 860px) {

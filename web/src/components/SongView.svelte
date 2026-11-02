@@ -107,7 +107,7 @@
     min-width: 0;
   }
   .eyebrow {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--fg-2);
     letter-spacing: 0.02em;
@@ -115,16 +115,16 @@
   }
   h1 {
     margin: 0;
-    font: 700 32px/1.15 var(--font-display);
+    font: 700 var(--fs-title1)/1.15 var(--font-display);
     letter-spacing: -0.025em;
   }
   .alias {
     margin-top: 2px;
-    font-size: 15px;
+    font-size: var(--fs-callout);
   }
   .owner {
     margin-top: 6px;
-    font-size: 19px;
+    font-size: var(--fs-title3);
     font-weight: 500;
     color: var(--accent);
     letter-spacing: -0.015em;
@@ -134,7 +134,7 @@
     align-items: center;
     gap: 6px;
     margin-top: 8px;
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     color: var(--fg-2);
     border-radius: var(--r-sm);
     transition: color var(--t-fast) var(--ease);
@@ -156,14 +156,14 @@
     min-width: 0;
   }
   dt {
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: var(--fg-3);
     font-weight: 500;
     letter-spacing: 0.02em;
   }
   dd {
     margin: 2px 0 0;
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 500;
   }
   .cta {
@@ -178,18 +178,18 @@
     animation: rise var(--t-slow) var(--ease-out) 80ms backwards;
   }
   h2 {
-    font: 600 20px var(--font-display);
+    font: 600 var(--fs-title3) var(--font-display);
     letter-spacing: -0.02em;
     margin: 0 0 14px;
   }
   .lyric p {
     margin: 0 0 12px;
-    font-size: 15px;
+    font-size: var(--fs-callout);
     line-height: 1.5;
   }
   .lyric p span {
     display: block;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg-2);
   }
   @media (max-width: 760px) {
@@ -224,7 +224,7 @@
       text-align: center;
     }
     h1 {
-      font-size: 26px;
+      font-size: var(--fs-title2);
     }
   }
 </style>

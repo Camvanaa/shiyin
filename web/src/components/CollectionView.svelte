@@ -184,7 +184,7 @@
     flex: 1;
   }
   .eyebrow {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--fg-2);
     letter-spacing: 0.02em;
@@ -192,7 +192,7 @@
   }
   h1 {
     margin: 0;
-    font: 700 30px/1.15 var(--font-display);
+    font: 700 var(--fs-title1)/1.15 var(--font-display);
     letter-spacing: -0.025em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -202,14 +202,14 @@
   }
   .owner {
     margin-top: 4px;
-    font-size: 18px;
+    font-size: var(--fs-title3);
     font-weight: 500;
     color: var(--accent);
     letter-spacing: -0.015em;
   }
   .meta {
     margin-top: 6px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .desc {
     display: block;
@@ -217,7 +217,7 @@
     max-width: 640px;
     text-align: left;
     color: var(--fg-2);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .desc p {
     margin: 0;
@@ -242,7 +242,7 @@
   .toolbar {
     position: sticky;
     top: 0;
-    z-index: 5;
+    z-index: var(--z-local-2);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -253,7 +253,7 @@
     border-bottom: 0.5px solid var(--line);
   }
   .count {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .done {
     margin-left: auto;
@@ -267,7 +267,7 @@
     height: 28px;
     width: 220px;
     padding: 0 10px;
-    border-radius: 8px;
+    border-radius: var(--r-md);
     background: var(--bg-2);
     color: var(--fg-3);
   }
@@ -282,7 +282,7 @@
     border: 0;
     outline: 0;
     background: transparent;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg);
   }
 
@@ -309,10 +309,10 @@
       width: 100%;
     }
     h1 {
-      font-size: 24px;
+      font-size: var(--fs-title2);
     }
     .owner {
-      font-size: 16px;
+      font-size: var(--fs-body);
     }
     .desc {
       margin-left: auto;

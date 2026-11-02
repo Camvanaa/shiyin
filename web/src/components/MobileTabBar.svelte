@@ -56,7 +56,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 60;
+    z-index: var(--z-tabbar);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     height: calc(var(--tabbar) + var(--sab));
@@ -89,7 +89,7 @@
     transform: scale(0.88);
   }
   .label {
-    font-size: 10px;
+    font-size: var(--fs-micro);
     font-weight: 500;
     letter-spacing: 0.01em;
   }
@@ -103,10 +103,10 @@
     min-width: 15px;
     height: 15px;
     padding: 0 4px;
-    border-radius: 99px;
+    border-radius: var(--r-pill);
     background: var(--accent);
-    color: #fff;
-    font-size: 9px;
+    color: var(--white);
+    font-size: var(--fs-micro);
     font-weight: 700;
     line-height: 15px;
     text-align: center;

@@ -118,7 +118,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border-radius: 16px;
+    border-radius: var(--r-lg);
     background: rgb(0 0 0 / 0);
     transition: background-color var(--t) var(--ease);
     user-select: none;
@@ -135,7 +135,7 @@
     align-items: center;
     gap: 2px;
     padding: 3px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: rgb(255 255 255 / 0.1);
     opacity: 0;
     transform: translate(-50%, -4px);
@@ -162,7 +162,7 @@
   }
   .bar button:hover {
     background: rgb(255 255 255 / 0.14);
-    color: #fff;
+    color: var(--white);
   }
   .bar button:active {
     transform: scale(0.9);
@@ -175,11 +175,11 @@
     height: 15px;
   }
   .txt {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 600;
   }
   .txt sup {
-    font-size: 9px;
+    font-size: var(--fs-micro);
   }
   .sep {
     width: 1px;

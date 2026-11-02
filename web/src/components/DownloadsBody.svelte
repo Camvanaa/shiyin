@@ -139,7 +139,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 2px 6px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   @media (max-width: 640px) {
     .toolbar {
@@ -156,12 +156,12 @@
   }
   .empty p {
     margin: 14px 0 4px;
-    font-size: 15px;
+    font-size: var(--fs-callout);
     font-weight: 500;
     color: var(--fg);
   }
   .empty span {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .job {
     padding: 10px 0;
@@ -192,13 +192,13 @@
     text-align: left;
   }
   .title {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 500;
   }
   .sub {
     display: flex;
     gap: 8px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
     margin-top: 1px;
   }
@@ -238,7 +238,7 @@
   }
   .hint {
     margin: 6px 0 0 56px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
   }
   .items {
     margin: 10px 0 0 56px;
@@ -251,7 +251,7 @@
     align-items: center;
     gap: 8px;
     height: 28px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
   }
   .dot {
     width: 6px;

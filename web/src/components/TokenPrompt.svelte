@@ -24,7 +24,7 @@
 <style>
   p {
     margin: 0 0 14px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   form {
     display: flex;

@@ -34,7 +34,7 @@
     left: 50%;
     bottom: calc(var(--playbar) + 16px);
     transform: translateX(-50%);
-    z-index: 90;
+    z-index: var(--z-toast);
     width: max-content;
     display: flex;
     flex-direction: column;
@@ -70,22 +70,22 @@
   }
   .success .ico {
     background: var(--ok);
-    color: #fff;
+    color: var(--white);
   }
   .error .ico {
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
   }
   .txt {
     flex: 1;
     min-width: 0;
   }
   .title {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
   }
   .detail {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
     overflow: hidden;
     text-overflow: ellipsis;

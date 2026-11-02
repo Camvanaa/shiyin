@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './components/Icon.svelte';
   import SearchBox from './components/SearchBox.svelte';
+  import SourceFilter from './components/SourceFilter.svelte';
   import Home from './components/Home.svelte';
   import CollectionView from './components/CollectionView.svelte';
   import SongView from './components/SongView.svelte';
@@ -157,12 +158,8 @@
               onreachend={() => app.searchMore()}
             >
               {#snippet subhead()}
-                <div class="seg-ctl src-tabs" role="tablist" aria-label="切换搜索音源">
-                  {#each app.sourceTabs as [id, label] (id)}
-                    <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>
-                      {label}
-                    </button>
-                  {/each}
+                <div class="src-tabs">
+                  <SourceFilter />
                 </div>
               {/snippet}
               {#snippet footer()}
@@ -222,7 +219,7 @@
   }
   .top {
     position: relative;
-    z-index: 20;
+    z-index: var(--z-sticky);
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 480px) minmax(0, 1fr);
     align-items: center;
@@ -247,11 +244,11 @@
     height: 32px;
     padding: 0 8px 0 4px;
     border-radius: var(--r-sm);
-    font: 600 15px var(--font-display);
+    font: 600 var(--fs-callout) var(--font-display);
     letter-spacing: -0.01em;
   }
   .brand img {
-    border-radius: 6px;
+    border-radius: var(--r-sm);
   }
   .top-mid {
     min-width: 0;
@@ -264,7 +261,7 @@
   .top-title {
     display: block;
     text-align: center;
-    font: 600 16px var(--font-display);
+    font: 600 var(--fs-body) var(--font-display);
     letter-spacing: -0.01em;
     color: var(--fg);
     transition: opacity var(--t) var(--ease), transform var(--t) var(--ease);
@@ -297,10 +294,10 @@
     min-width: 15px;
     height: 15px;
     padding: 0 4px;
-    border-radius: 99px;
+    border-radius: var(--r-pill);
     background: var(--accent);
-    color: #fff;
-    font-size: 10px;
+    color: var(--white);
+    font-size: var(--fs-micro);
     font-weight: 600;
     line-height: 15px;
     animation: pop var(--t) var(--ease-spring) both;
@@ -359,28 +356,18 @@
     border-radius: var(--r);
     background: var(--accent-soft);
     color: var(--accent);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     animation: rise var(--t) var(--ease-out);
   }
   .src-tabs {
     margin-top: 12px;
-  }
-  @media (max-width: 640px) {
-    .src-tabs {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    }
-    .src-tabs button {
-      padding: 0 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    max-width: 100%;
   }
   .more {
     display: grid;
     place-items: center;
     height: 64px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
 
   @media (max-width: 640px) {

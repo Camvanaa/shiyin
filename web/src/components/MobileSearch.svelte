@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import SourceFilter from './SourceFilter.svelte';
   import { app } from '../lib/app.svelte';
   import { history, clearHistory, forget } from '../lib/history.svelte';
   import { recent } from '../lib/recent.svelte';
@@ -81,11 +82,7 @@
     {/if}
   </div>
 
-  <div class="seg-ctl src" role="tablist" aria-label="音源">
-    {#each app.sourceTabs as [id, label] (id)}
-      <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>{label}</button>
-    {/each}
-  </div>
+  <SourceFilter variant="chips" />
 
   {#if recentQueries.length}
     <section>
@@ -180,7 +177,7 @@
     align-items: center;
     height: 40px;
     padding: 0 6px 0 10px;
-    border-radius: 11px;
+    border-radius: var(--r);
     background: var(--bg-2);
     color: var(--fg-3);
     transition: box-shadow var(--t) var(--ease), background-color var(--t) var(--ease);
@@ -203,7 +200,7 @@
     border: 0;
     outline: none;
     background: transparent;
-    font-size: 16px; /* ≥16px 防止 iOS 聚焦时自动放大页面 */
+    font-size: var(--fs-body); /* ≥16px 防止 iOS 聚焦时自动放大页面 */
     color: var(--fg);
     appearance: none;
   }
@@ -234,19 +231,6 @@
     position: relative;
   }
 
-  .src {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    margin-top: 10px;
-  }
-  .src button {
-    height: 30px;
-    padding: 0 2px;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   section {
     margin-top: 26px;
   }
@@ -259,7 +243,7 @@
   }
   h3 {
     margin: 0;
-    font: 600 17px var(--font-display);
+    font: 600 var(--fs-headline) var(--font-display);
     letter-spacing: -0.015em;
   }
 
@@ -273,9 +257,9 @@
     align-items: center;
     height: 32px;
     padding-left: 13px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--bg-2);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     max-width: 100%;
     transition: transform var(--t-fast) var(--ease);
   }
@@ -304,7 +288,7 @@
   .rank {
     width: 16px;
     flex: none;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 600;
     color: var(--fg-3);
     text-align: center;
@@ -370,7 +354,7 @@
     position: relative;
     width: 44px;
     height: 44px;
-    border-radius: 8px;
+    border-radius: var(--r-md);
     overflow: hidden;
     background: var(--bg-3);
     display: grid;
@@ -391,13 +375,13 @@
     gap: 1px;
   }
   .r-name {
-    font-size: 15px;
+    font-size: var(--fs-callout);
     font-weight: 500;
     color: var(--fg);
     letter-spacing: -0.01em;
   }
   .r-sub {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
 </style>

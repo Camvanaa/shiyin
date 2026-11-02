@@ -83,7 +83,7 @@
     text-align: center;
   }
   .count {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     margin-bottom: 6px;
   }
   .row {
@@ -116,7 +116,7 @@
     text-align: left;
   }
   .main img {
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     background: var(--bg-3);
     flex: none;
     object-fit: cover;
@@ -128,15 +128,15 @@
     flex-direction: column;
   }
   .name {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
   }
   .sub {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .dur {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-3);
   }
   .ops {
@@ -180,7 +180,7 @@
       height: 38px;
     }
     .name {
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
   }
 </style>

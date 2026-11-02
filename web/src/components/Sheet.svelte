@@ -114,7 +114,7 @@
   .scrim {
     position: fixed;
     inset: 0;
-    z-index: 70;
+    z-index: var(--z-drawer);
     background: var(--scrim);
     animation: fade var(--t) var(--ease) both;
   }
@@ -123,7 +123,7 @@
   }
   .sheet {
     position: fixed;
-    z-index: 71;
+    z-index: var(--z-drawer-2);
     left: 50%;
     top: 50%;
     width: min(var(--w), calc(100vw - 32px));
@@ -190,7 +190,7 @@
   }
   h2 {
     margin: 0;
-    font: 600 17px var(--font-display);
+    font: 600 var(--fs-headline) var(--font-display);
     letter-spacing: -0.015em;
   }
   .acts {
@@ -261,7 +261,7 @@
       width: 36px;
       height: 5px;
       margin-left: -18px;
-      border-radius: 99px;
+      border-radius: var(--r-pill);
       background: var(--line-2);
     }
     .content {

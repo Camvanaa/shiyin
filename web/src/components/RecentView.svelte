@@ -93,7 +93,7 @@
     flex: 1;
   }
   .eyebrow {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--fg-2);
     letter-spacing: 0.02em;
@@ -101,12 +101,12 @@
   }
   h1 {
     margin: 0;
-    font: 700 30px/1.15 var(--font-display);
+    font: 700 var(--fs-title1)/1.15 var(--font-display);
     letter-spacing: -0.025em;
   }
   .meta {
     margin-top: 6px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .cta {
     display: flex;
@@ -133,7 +133,7 @@
       border-radius: var(--r-xl);
     }
     h1 {
-      font-size: 24px;
+      font-size: var(--fs-title2);
     }
     .cta {
       justify-content: center;

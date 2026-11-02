@@ -20,7 +20,7 @@
   }
   h1 {
     margin: 0;
-    font: 700 28px/1.1 var(--font-display);
+    font: 700 var(--fs-title1)/1.1 var(--font-display);
     letter-spacing: -0.028em;
   }
 </style>

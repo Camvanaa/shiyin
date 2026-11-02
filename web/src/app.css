@@ -11,7 +11,7 @@
   --bg-elev: #ffffff;
   --fg: #1d1d1f;
   --fg-2: #6e6e73;
-  --fg-3: #a1a1a6;
+  --fg-3: #8a8a8e;
   --line: rgba(0, 0, 0, 0.08);
   --line-2: rgba(0, 0, 0, 0.14);
   --hover: rgba(0, 0, 0, 0.035);
@@ -22,14 +22,62 @@
   --ok: #34c759;
   --warn: #ff9f0a;
   --scrim: rgba(0, 0, 0, 0.28);
+  /* 固定色：不随主题变化（永远白字用于深色/强调色底，深墨用于白底） */
+  --white: #fff;
+  --black: #000;
+  --ink: #1d1d1f;
+  --ink-2: #f0f0f2;
+  /* 全屏播放页底色（深色，不随主题变） */
+  --np-bg: #111;
+  --np-bg-2: #101010;
   --shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.12);
   --shadow-sm: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.06);
   --cover-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
 
+  --r-xs: 4px;
   --r-sm: 6px;
+  --r-md: 8px;
   --r: 10px;
   --r-lg: 14px;
   --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* 字号阶梯（Apple 风格，收敛此前散落的 24 种取值） */
+  --fs-micro: 9px;
+  --fs-caption2: 11px;
+  --fs-caption: 12px;
+  --fs-footnote: 13px;
+  --fs-subhead: 14px;
+  --fs-callout: 15px;
+  --fs-body: 16px;
+  --fs-headline: 17px;
+  --fs-title3: 20px;
+  --fs-title2: 24px;
+  --fs-title1: 28px;
+
+  /* 间距（4pt 基线 / 8pt 网格） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 层级表：统一在此登记，避免 69/70/71 这类手工错位 */
+  --z-local: 1;
+  --z-local-2: 2;
+  --z-sticky: 20;
+  --z-nav: 40;
+  --z-tabbar: 60;
+  --z-pill: 65;
+  --z-menu-scrim: 69;
+  --z-drawer: 70;
+  --z-drawer-2: 71;
+  --z-sheet: 79;
+  --z-menu: 80;
+  --z-toast: 90;
+  --z-fullscreen: 95;
 
   /* 运动曲线：统一使用 Apple 风格的快出慢入，弹性曲线仅用于弹层进入 */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
@@ -62,7 +110,7 @@
     --bg-elev: #1c1c1e;
     --fg: #f5f5f7;
     --fg-2: #98989d;
-    --fg-3: #636366;
+    --fg-3: #7c7c80;
     --line: rgba(255, 255, 255, 0.09);
     --line-2: rgba(255, 255, 255, 0.16);
     --hover: rgba(255, 255, 255, 0.06);
@@ -84,7 +132,7 @@
   --bg-elev: #1c1c1e;
   --fg: #f5f5f7;
   --fg-2: #98989d;
-  --fg-3: #636366;
+  --fg-3: #7c7c80;
   --line: rgba(255, 255, 255, 0.09);
   --line-2: rgba(255, 255, 255, 0.16);
   --hover: rgba(255, 255, 255, 0.06);
@@ -110,7 +158,7 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font: 400 14px/1.45 var(--font);
+  font: 400 var(--fs-subhead)/1.45 var(--font);
   letter-spacing: -0.006em;
   font-feature-settings: 'kern';
   font-kerning: normal;
@@ -189,7 +237,7 @@ img.fade.ok {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -209,8 +257,8 @@ img.fade.ok {
   gap: 6px;
   height: 32px;
   padding: 0 14px;
-  border-radius: 999px;
-  font-size: 13px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-footnote);
   font-weight: 500;
   white-space: nowrap;
   background: var(--bg-2);
@@ -248,7 +296,7 @@ img.fade.ok {
 .btn.lg {
   height: 38px;
   padding: 0 20px;
-  font-size: 14px;
+  font-size: var(--fs-subhead);
 }
 .btn svg {
   width: 16px;
@@ -261,7 +309,7 @@ img.fade.ok {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--fg-2);
   transition:
     background-color var(--t-fast) var(--ease),
@@ -322,8 +370,8 @@ img.fade.ok {
   align-items: center;
   height: 16px;
   padding: 0 5px;
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -348,15 +396,15 @@ img.fade.ok {
 .seg-ctl {
   display: inline-flex;
   padding: 3px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--bg-2);
   gap: 2px;
 }
 .seg-ctl button {
   height: 26px;
   padding: 0 12px;
-  border-radius: 7px;
-  font-size: 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--fg-2);
   white-space: nowrap;

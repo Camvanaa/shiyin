@@ -61,8 +61,8 @@
     gap: 10px;
     height: 34px;
     padding: 0 10px;
-    border-radius: 7px;
-    font-size: 13px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-footnote);
     font-weight: 500;
     color: var(--fg-2);
     text-align: left;
@@ -91,7 +91,7 @@
   }
   .ver {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: var(--fg-3);
   }
   .pane {

@@ -135,7 +135,7 @@
     width: 100%;
   }
   .box.open {
-    z-index: 40;
+    z-index: var(--z-nav);
   }
   .field {
     position: relative;
@@ -191,7 +191,7 @@
     border: 0;
     outline: 0;
     background: transparent;
-    font-size: 14px;
+    font-size: var(--fs-subhead);
   }
   input::placeholder {
     color: var(--fg-3);
@@ -214,10 +214,10 @@
   }
   kbd {
     margin-right: 10px;
-    font: 500 11px var(--font);
+    font: 500 var(--fs-caption2) var(--font);
     color: var(--fg-3);
     border: 1px solid var(--line-2);
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     padding: 1px 5px;
   }
 
@@ -226,7 +226,7 @@
     left: 0;
     right: 0;
     top: calc(100% + 6px);
-    z-index: 40;
+    z-index: var(--z-nav);
     padding: 6px;
     border-radius: var(--r-lg);
     background: var(--bg-elev);
@@ -242,7 +242,7 @@
   }
   .cap {
     padding: 6px 10px 4px;
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     font-weight: 600;
     color: var(--fg-3);
     letter-spacing: 0.02em;
@@ -265,10 +265,10 @@
     height: 40px;
     padding: 0 10px;
     text-align: left;
-    font-size: 14px;
+    font-size: var(--fs-subhead);
   }
   .opt-main img {
-    border-radius: 4px;
+    border-radius: var(--r-xs);
     flex: none;
     object-fit: cover;
   }
@@ -286,7 +286,7 @@
   }
   .kind {
     margin-left: auto;
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: var(--fg-3);
     flex: none;
   }

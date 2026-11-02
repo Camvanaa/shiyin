@@ -214,11 +214,11 @@
   .np {
     position: fixed;
     inset: 0;
-    z-index: 95;
+    z-index: var(--z-fullscreen);
     display: flex;
     flex-direction: column;
-    color: #fff;
-    background: #111;
+    color: var(--white);
+    background: var(--np-bg);
     animation: np-in var(--t-sheet) var(--ease) both;
     user-select: none;
     -webkit-user-select: none;
@@ -241,7 +241,7 @@
       radial-gradient(80% 70% at 18% 28%, rgb(var(--tint) / 0.95), transparent 72%),
       radial-gradient(70% 70% at 88% 85%, rgb(var(--tint) / 0.6), transparent 70%),
       radial-gradient(60% 60% at 80% 10%, rgb(var(--tint) / 0.35), transparent 70%),
-      #101010;
+      var(--np-bg-2);
     filter: saturate(1.6) brightness(0.9);
     transition: background var(--t-slow) var(--ease);
     pointer-events: none;
@@ -267,7 +267,7 @@
   }
   header .icon-btn:hover {
     background: rgb(255 255 255 / 0.12);
-    color: #fff;
+    color: var(--white);
   }
   .grabber {
     display: none;
@@ -277,7 +277,7 @@
     align-items: center;
     gap: 6px;
     padding: 4px 8px 4px 4px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     color: rgb(255 255 255 / 0.7);
     transition: background-color var(--t-fast) var(--ease);
   }
@@ -292,14 +292,14 @@
   }
   header .icon-btn.on {
     background: rgb(255 255 255 / 0.16);
-    color: #fff;
+    color: var(--white);
   }
   .q {
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     font-weight: 600;
     letter-spacing: 0.04em;
     padding: 3px 8px;
-    border-radius: 6px;
+    border-radius: var(--r-sm);
     background: rgb(255 255 255 / 0.14);
     color: rgb(255 255 255 / 0.85);
   }
@@ -354,12 +354,12 @@
     animation: rise var(--t) var(--ease-out);
   }
   .name {
-    font: 600 22px/1.25 var(--font-display);
+    font: 600 var(--fs-title2)/1.25 var(--font-display);
     letter-spacing: -0.02em;
   }
   .artist {
     margin-top: 2px;
-    font-size: 16px;
+    font-size: var(--fs-body);
     color: rgb(255 255 255 / 0.65);
   }
   .progress {
@@ -376,13 +376,13 @@
   }
   .progress :global(.slider:hover .fill),
   .progress :global(.dragging .fill) {
-    background: #fff;
+    background: var(--white);
   }
   .times {
     display: flex;
     justify-content: space-between;
     margin-top: 4px;
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     color: rgb(255 255 255 / 0.55);
   }
   .controls {
@@ -396,13 +396,13 @@
     position: relative;
   }
   .icon-btn.aux.on {
-    color: #fff;
+    color: var(--white);
   }
   .one {
     position: absolute;
     right: 5px;
     bottom: 5px;
-    font-size: 8px;
+    font-size: var(--fs-micro);
     font-weight: 700;
   }
   .ctl {
@@ -411,7 +411,7 @@
     border-radius: 50%;
     display: grid;
     place-items: center;
-    color: #fff;
+    color: var(--white);
     transition: transform var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
   }
   .ctl:hover {
@@ -432,7 +432,7 @@
     width: 24px;
     height: 24px;
     border-color: rgb(255 255 255 / 0.25);
-    border-top-color: #fff;
+    border-top-color: var(--white);
   }
   .m-tools {
     display: none;
@@ -461,7 +461,7 @@
     padding: 10px 12px;
     margin-left: -12px;
     border-radius: var(--r);
-    font: 700 28px/1.3 var(--font-display);
+    font: 700 var(--fs-title1)/1.3 var(--font-display);
     letter-spacing: -0.02em;
     color: rgb(255 255 255 / 0.32);
     transform-origin: left center;
@@ -476,13 +476,13 @@
     color: rgb(255 255 255 / 0.42);
   }
   .line.on {
-    color: #fff;
+    color: var(--white);
     transform: none;
   }
   .trans {
     display: block;
     margin-top: 4px;
-    font-size: 18px;
+    font-size: var(--fs-title3);
     font-weight: 600;
   }
   .empty {
@@ -490,7 +490,7 @@
     display: grid;
     place-items: center;
     color: rgb(255 255 255 / 0.4);
-    font-size: 17px;
+    font-size: var(--fs-headline);
   }
 
   /* ---------- 移动端：单列、封面与歌词互斥 ---------- */
@@ -510,7 +510,7 @@
       width: 36px;
       height: 5px;
       margin-left: -18px;
-      border-radius: 99px;
+      border-radius: var(--r-pill);
       background: rgb(255 255 255 / 0.32);
     }
     .tags {
@@ -537,7 +537,7 @@
     .art {
       width: min(100%, 78vw, 360px);
       margin: auto;
-      border-radius: 18px;
+      border-radius: var(--r-xl);
       box-shadow: 0 20px 50px rgb(0 0 0 / 0.5);
     }
     .art-btn {
@@ -550,10 +550,10 @@
       margin-top: 22px;
     }
     .name {
-      font-size: 21px;
+      font-size: var(--fs-title3);
     }
     .artist {
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
     .progress {
       margin-top: 16px;
@@ -599,7 +599,7 @@
       transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
     }
     .tool.on {
-      color: #fff;
+      color: var(--white);
       background: rgb(255 255 255 / 0.16);
     }
 
@@ -624,10 +624,10 @@
       margin-top: 4px;
     }
     .lyrics-mode .name {
-      font-size: 17px;
+      font-size: var(--fs-headline);
     }
     .lyrics-mode .artist {
-      font-size: 13px;
+      font-size: var(--fs-footnote);
     }
     .lyrics-mode .progress {
       margin-top: 10px;
@@ -641,7 +641,7 @@
       height: 60px;
     }
     .line {
-      font-size: 24px;
+      font-size: var(--fs-title2);
       padding: 10px 4px;
       margin-left: 0;
       transform-origin: left center;
@@ -651,7 +651,7 @@
       transform: none;
     }
     .trans {
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
   }
 </style>

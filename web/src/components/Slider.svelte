@@ -94,7 +94,7 @@
     position: relative;
     width: 100%;
     height: var(--h);
-    border-radius: 99px;
+    border-radius: var(--r-pill);
     background: var(--line-2);
     overflow: hidden;
     transition: height var(--t-fast) var(--ease);
@@ -129,7 +129,7 @@
     height: 12px;
     margin: -6px 0 0 -6px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--white);
     box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.25);
     transform: scale(0);
     transition: transform var(--t-fast) var(--ease);

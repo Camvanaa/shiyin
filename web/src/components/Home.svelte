@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from '../lib/fade';
   import Icon from './Icon.svelte';
+  import SourceFilter from './SourceFilter.svelte';
   import { app } from '../lib/app.svelte';
   import { player } from '../lib/player.svelte';
   import { history, clearHistory } from '../lib/history.svelte';
@@ -33,11 +34,7 @@
 <div class="home">
   <header class="page-head">
     <h1>主页</h1>
-    <div class="seg-ctl" role="tablist" aria-label="音源">
-      {#each app.sourceTabs as [id, label] (id)}
-        <button class:on={app.source === id} onclick={() => app.setSource(id)} role="tab" aria-selected={app.source === id}>{label}</button>
-      {/each}
-    </div>
+    <SourceFilter />
   </header>
 
   {#if played.length}
@@ -213,7 +210,7 @@
   }
   h1 {
     margin: 0;
-    font: 700 30px/1.1 var(--font-display);
+    font: 700 var(--fs-title1)/1.1 var(--font-display);
     letter-spacing: -0.028em;
   }
   .src-tag {
@@ -221,10 +218,10 @@
     left: 8px;
     top: 8px;
     padding: 2px 6px;
-    border-radius: 5px;
+    border-radius: var(--r-sm);
     background: rgba(0, 0, 0, 0.52);
-    color: #fff;
-    font-size: 10px;
+    color: var(--white);
+    font-size: var(--fs-micro);
     font-weight: 600;
     letter-spacing: 0.02em;
   }
@@ -257,7 +254,7 @@
   }
   h2 {
     margin: 0;
-    font: 700 20px/1.2 var(--font-display);
+    font: 700 var(--fs-title3)/1.2 var(--font-display);
     letter-spacing: -0.02em;
   }
 
@@ -311,7 +308,7 @@
     display: grid;
     place-items: center;
     background: rgba(255, 255, 255, 0.92);
-    color: #1d1d1f;
+    color: var(--ink);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
     opacity: 0;
     transform: scale(0.88);
@@ -328,7 +325,7 @@
   }
   .card-title {
     margin-top: 8px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
     line-height: 1.35;
     letter-spacing: -0.008em;
@@ -342,7 +339,7 @@
   }
   .card-sub {
     margin-top: 2px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
 
@@ -412,7 +409,7 @@
     display: grid;
     place-items: center;
     background: rgba(0, 0, 0, 0.42);
-    color: #fff;
+    color: var(--white);
     opacity: 0;
     transition: opacity var(--t-fast) var(--ease);
   }
@@ -432,7 +429,7 @@
     gap: 2px;
   }
   .s-name {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 500;
     letter-spacing: -0.01em;
   }
@@ -440,7 +437,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .dl {
@@ -464,7 +461,7 @@
     height: 12px;
     width: 78%;
     margin-top: 10px;
-    border-radius: 4px;
+    border-radius: var(--r-xs);
     background: var(--bg-2);
   }
   .sk-line.sm {
@@ -515,17 +512,7 @@
       padding: 2px 0 10px;
     }
     h1 {
-      font-size: 28px;
-    }
-    .page-head .seg-ctl {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    }
-    .page-head .seg-ctl button {
-      padding: 0 2px;
-      height: 28px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: var(--fs-title1);
     }
     section {
       margin-top: 24px;
@@ -535,7 +522,7 @@
       padding: 0 2px;
     }
     h2 {
-      font-size: 19px;
+      font-size: var(--fs-title3);
     }
 
     /* 横向滚动容器：左右出血到屏幕边缘，snap 对齐 */
@@ -575,7 +562,7 @@
       display: none;
     }
     .card-title {
-      font-size: 13px;
+      font-size: var(--fs-footnote);
     }
 
     /* 最近播放：小瓦片 */
@@ -611,11 +598,11 @@
       display: grid;
       place-items: center;
       background: rgba(0, 0, 0, 0.42);
-      color: #fff;
+      color: var(--white);
     }
     .tile-name {
       margin-top: 6px;
-      font-size: 12.5px;
+      font-size: var(--fs-caption);
       font-weight: 500;
       letter-spacing: -0.005em;
     }
@@ -623,7 +610,7 @@
       color: var(--accent);
     }
     .tile-sub {
-      font-size: 11px;
+      font-size: var(--fs-caption2);
       color: var(--fg-2);
     }
 
@@ -652,7 +639,7 @@
       color: var(--fg-3);
     }
     .s-name {
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
 
     /* 排行榜：紧凑榜单行 */
@@ -706,7 +693,7 @@
     .chart-rank {
       width: 18px;
       flex: none;
-      font-size: 13px;
+      font-size: var(--fs-footnote);
       font-weight: 600;
       color: var(--fg-3);
       text-align: center;
@@ -722,13 +709,13 @@
       gap: 1px;
     }
     .chart-name {
-      font-size: 15px;
+      font-size: var(--fs-callout);
       font-weight: 500;
       color: var(--fg);
       letter-spacing: -0.01em;
     }
     .chart-sub {
-      font-size: 12px;
+      font-size: var(--fs-caption);
       color: var(--fg-2);
     }
   }

@@ -131,7 +131,7 @@
     left: 0;
     right: 0;
     top: -8px;
-    z-index: 2;
+    z-index: var(--z-local-2);
   }
   .progress-top :global(.track) {
     border-radius: 0;
@@ -164,7 +164,7 @@
     display: grid;
     place-items: center;
     background: rgba(0, 0, 0, 0.4);
-    color: #fff;
+    color: var(--white);
     opacity: 0;
     transition: opacity var(--t-fast) var(--ease);
   }
@@ -186,7 +186,7 @@
   .name {
     display: block;
     max-width: 100%;
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 500;
     text-align: left;
   }
@@ -196,7 +196,7 @@
     text-decoration-color: var(--fg-3);
   }
   .artist {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .center {
@@ -218,7 +218,7 @@
     position: absolute;
     right: 5px;
     bottom: 5px;
-    font-size: 8px;
+    font-size: var(--fs-micro);
     font-weight: 700;
   }
   .play {
@@ -252,7 +252,7 @@
     gap: 4px;
   }
   .time {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-3);
     margin-right: 8px;
   }

@@ -46,7 +46,7 @@
   }
   h1 {
     margin: 0;
-    font: 700 28px/1.1 var(--font-display);
+    font: 700 var(--fs-title1)/1.1 var(--font-display);
     letter-spacing: -0.028em;
   }
   .account {
@@ -89,13 +89,13 @@
     gap: 2px;
   }
   .acc-name {
-    font-size: 17px;
+    font-size: var(--fs-headline);
     font-weight: 600;
     color: var(--fg);
     letter-spacing: -0.015em;
   }
   .acc-sub {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg-2);
   }
   .chev {

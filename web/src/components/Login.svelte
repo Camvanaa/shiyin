@@ -413,7 +413,7 @@
     align-items: center;
     gap: 10px;
     margin: 14px 0 10px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-3);
   }
   .or::before,
@@ -434,7 +434,7 @@
     justify-content: space-between;
     min-height: 44px;
     padding: 6px 12px 6px 14px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .me {
     display: flex;
@@ -448,7 +448,7 @@
     margin-bottom: 10px;
   }
   .nick {
-    font: 600 19px var(--font-display);
+    font: 600 var(--fs-title3) var(--font-display);
     letter-spacing: -0.015em;
   }
   .me .btn {
@@ -459,15 +459,15 @@
     display: grid;
     grid-template-columns: repeat(var(--n, 2), 1fr);
     padding: 2px;
-    border-radius: 9px;
+    border-radius: var(--r-md);
     background: var(--bg-2);
     margin-bottom: 20px;
   }
   .seg button {
     position: relative;
-    z-index: 1;
+    z-index: var(--z-local);
     height: 28px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
     color: var(--fg-2);
     transition: color var(--t) var(--ease);
@@ -481,7 +481,7 @@
     top: 2px;
     bottom: 2px;
     width: calc((100% - 4px) / var(--n, 2));
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     background: var(--bg-elev);
     box-shadow: var(--shadow-sm);
     transition: transform var(--t) var(--ease);
@@ -497,11 +497,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .field .input {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
   }
   .captcha {
     display: flex;
@@ -516,7 +516,7 @@
     flex: none;
     width: 110px;
     border-radius: var(--r-sm);
-    background: #fff;
+    background: var(--white);
     overflow: hidden;
     display: grid;
     place-items: center;
@@ -534,7 +534,7 @@
     font-weight: 600;
   }
   .sms .small {
-    font-size: 11px;
+    font-size: var(--fs-caption2);
     margin-top: 4px;
   }
   .resend {
@@ -554,8 +554,8 @@
     margin: 4px auto 0;
     padding: 14px;
     border-radius: var(--r-lg);
-    background: #fff;
-    color: #000;
+    background: var(--white);
+    color: var(--black);
     box-shadow: var(--shadow-sm);
   }
   .qr img {
@@ -582,42 +582,42 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     font-weight: 500;
-    color: #1d1d1f;
+    color: var(--ink);
     animation: fade var(--t) var(--ease);
   }
   .over .btn {
-    background: #f0f0f2;
-    color: #1d1d1f;
+    background: var(--ink-2);
+    color: var(--ink);
   }
   .over.ok {
     color: var(--ok);
   }
   .qr-wrap p {
     margin: 16px 0 4px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .err {
     color: var(--accent);
-    font-size: 12px;
+    font-size: var(--fs-caption);
   }
   .cookie p {
     margin: 0 0 12px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   code {
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-caption);
     padding: 1px 4px;
-    border-radius: 4px;
+    border-radius: var(--r-xs);
     background: var(--bg-2);
   }
   textarea.input {
     height: auto;
     padding: 10px 12px;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-caption);
     resize: none;
     word-break: break-all;
   }
@@ -628,7 +628,7 @@
   }
   .plat button {
     height: 28px;
-    font-size: 13px;
+    font-size: var(--fs-footnote);
   }
   .row-btns {
     display: flex;
@@ -658,11 +658,11 @@
     }
     .plat button {
       height: 34px;
-      font-size: 14px;
+      font-size: var(--fs-subhead);
     }
     .seg button {
       height: 34px;
-      font-size: 14px;
+      font-size: var(--fs-subhead);
     }
     .qr {
       width: 220px;
@@ -670,10 +670,10 @@
     }
     .cookie p,
     .qr-wrap p {
-      font-size: 14px;
+      font-size: var(--fs-subhead);
     }
     textarea.input {
-      font-size: 14px;
+      font-size: var(--fs-subhead);
     }
   }
 </style>

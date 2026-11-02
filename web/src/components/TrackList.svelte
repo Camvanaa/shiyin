@@ -313,7 +313,7 @@
   }
   .num {
     color: var(--fg-3);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     transition: opacity var(--t-fast) var(--ease);
   }
   .play-overlay {
@@ -328,7 +328,7 @@
   }
   .play-overlay.cover-mode {
     background: rgba(0, 0, 0, 0.42);
-    color: #fff;
+    color: var(--white);
   }
   .play-overlay :global(svg) {
     width: 16px;
@@ -379,7 +379,7 @@
     min-width: 0;
   }
   .name {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 500;
     letter-spacing: -0.01em;
   }
@@ -388,7 +388,7 @@
     font-weight: 400;
   }
   .sub {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
     display: flex;
     align-items: center;
@@ -396,11 +396,11 @@
     margin-top: 1px;
   }
   .album {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg-2);
   }
   .dur {
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     color: var(--fg-3);
     text-align: right;
   }
@@ -436,7 +436,7 @@
   .check.on {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--white);
   }
   .check:active {
     transform: scale(0.88);
@@ -444,7 +444,7 @@
 
   .menu {
     position: fixed;
-    z-index: 60;
+    z-index: var(--z-tabbar);
     min-width: 188px;
     padding: 5px;
     border-radius: var(--r);
@@ -467,12 +467,12 @@
     height: 30px;
     padding: 0 10px;
     border-radius: var(--r-sm);
-    font-size: 13px;
+    font-size: var(--fs-footnote);
     text-align: left;
   }
   .menu button:hover {
     background: var(--accent);
-    color: #fff;
+    color: var(--white);
   }
   .menu :global(svg) {
     width: 15px;
@@ -545,7 +545,7 @@
       height: 44px;
     }
     .name {
-      font-size: 15px;
+      font-size: var(--fs-callout);
     }
 
     /* 移动端：底部动作面板 */
@@ -553,7 +553,7 @@
       display: block;
       position: fixed;
       inset: 0;
-      z-index: 69;
+      z-index: var(--z-menu-scrim);
       background: var(--scrim);
       animation: fade var(--t) var(--ease) both;
     }
@@ -562,7 +562,7 @@
       right: 8px;
       top: auto !important;
       bottom: calc(8px + var(--sab));
-      z-index: 70;
+      z-index: var(--z-drawer);
       min-width: 0;
       padding: 6px;
       border-radius: var(--r-xl);
@@ -584,22 +584,22 @@
       border-bottom: 0.5px solid var(--line);
     }
     .menu-head img {
-      border-radius: 6px;
+      border-radius: var(--r-sm);
       background: var(--bg-3);
       flex: none;
     }
     .mh-txt {
       min-width: 0;
-      font-size: 14px;
+      font-size: var(--fs-subhead);
       font-weight: 500;
     }
     .mh-txt .muted {
-      font-size: 12px;
+      font-size: var(--fs-caption);
       font-weight: 400;
     }
     .menu button {
       height: 46px;
-      font-size: 15px;
+      font-size: var(--fs-callout);
       padding: 0 12px;
       gap: 14px;
       border-radius: var(--r);

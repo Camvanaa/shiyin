@@ -90,7 +90,7 @@
     left: 8px;
     right: 8px;
     bottom: calc(var(--tabbar) + var(--sab) + 8px);
-    z-index: 65;
+    z-index: var(--z-pill);
     animation: pill-in var(--t-slow) var(--ease-out) both;
   }
   @keyframes pill-in {
@@ -106,7 +106,7 @@
     gap: 12px;
     height: 56px;
     padding: 0 8px 0 6px;
-    border-radius: 14px;
+    border-radius: var(--r-lg);
     background: color-mix(in srgb, var(--bg-elev) 94%, transparent);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     backdrop-filter: saturate(180%) blur(20px);
@@ -124,7 +124,7 @@
   .art {
     width: 44px;
     height: 44px;
-    border-radius: 9px;
+    border-radius: var(--r-md);
     overflow: hidden;
     background: var(--bg-3);
     flex: none;
@@ -144,12 +144,12 @@
     gap: 1px;
   }
   .name {
-    font-size: 14px;
+    font-size: var(--fs-subhead);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
   .artist {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     color: var(--fg-2);
   }
   .actions {
