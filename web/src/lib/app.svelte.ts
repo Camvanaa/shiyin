@@ -38,6 +38,7 @@ class AppState {
   feed = $state<HomeFeed | null>(null);
   source = $state<string>(localStorage.getItem('shiyin.source') ?? 'all');
   homeLoading = $state(false);
+  homeError = $state('');
   sources = $state<SourceInfo[]>([]);
   /** 视图切换计数，用于触发进入动画 */
   viewKey = $state(0);
@@ -94,10 +95,15 @@ class AppState {
 
   loadHome() {
     this.homeLoading = true;
+    this.homeError = '';
     api
       .home(this.source)
       .then((f) => (this.feed = f))
-      .catch(() => {})
+      .catch((e) => {
+        // 首页失败此前被完全吞掉，页面只剩空 section，用户看不到任何原因
+        this.homeError = (e as Error)?.message || '内容加载失败';
+        toast.push({ kind: 'error', title: '首页加载失败', detail: this.homeError, action: { label: '重试', run: () => this.loadHome() } });
+      })
       .finally(() => (this.homeLoading = false));
   }
 

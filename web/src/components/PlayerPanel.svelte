@@ -7,6 +7,7 @@
   import { toast } from '../lib/toast.svelte';
   import { artists, duration, img, sourceName } from '../lib/format';
   import { app } from '../lib/app.svelte';
+  import { focusTrap } from '../lib/focusTrap';
   import { LEVELS, type MatchCandidate, type Track } from '../lib/types';
 
   // 全屏播放页内部面板：与播放页同色系、同层级，不依赖全局 Sheet。
@@ -118,7 +119,7 @@
 
 {#if mounted}
   <div class="scrim" class:closing onclick={onclose} role="presentation"></div>
-  <aside class="panel" class:closing aria-label="播放面板">
+  <div class="panel" class:closing aria-label="播放面板" role="dialog" aria-modal="true" tabindex="-1" use:focusTrap={{ initial: 'container' }}>
     <header>
       <div class="seg" role="tablist">
         <button class:on={tab === 'queue'} onclick={() => (tab = 'queue')} role="tab" aria-selected={tab === 'queue'}>播放列表</button>
@@ -222,7 +223,7 @@
         </section>
       </div>
     {/if}
-  </aside>
+  </div>
 {/if}
 
 <style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
+  import { focusTrap } from '../lib/focusTrap';
 
   // 浮层：桌面 side = 右侧抽屉 / 默认居中面板；移动端统一为底部抽屉
   let {
@@ -95,6 +96,7 @@
     role="dialog"
     aria-modal="true"
     aria-label={title}
+    use:focusTrap
   >
     <header role="presentation" ontouchstart={dragStart} ontouchmove={dragMove} ontouchend={dragEnd} ontouchcancel={dragEnd}>
       <div class="grabber" aria-hidden="true"></div>

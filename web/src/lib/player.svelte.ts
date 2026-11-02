@@ -315,7 +315,10 @@ class Player {
       this.loading = false;
       toast.error(`无法播放「${t.name}」`, (e as Error).message);
       // 自动跳过不可播放的歌曲，但避免整队列都失败时无限循环
-      if (this.queue.length > 1 && this.#skipStreak++ < 3) this.next();
+      if (this.queue.length > 1 && this.#skipStreak++ < 3) {
+        this.next();
+        toast.info(`已跳过「${t.name}」`, '无可用音源，正在播放下一个');
+      }
     }
   }
   #skipStreak = 0;

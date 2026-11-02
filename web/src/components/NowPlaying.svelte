@@ -3,6 +3,7 @@
   import Icon from './Icon.svelte';
   import Slider from './Slider.svelte';
   import PlayerPanel from './PlayerPanel.svelte';
+  import { focusTrap } from '../lib/focusTrap';
   import { player } from '../lib/player.svelte';
   import { artists, duration, img, sourceName } from '../lib/format';
   import { lineAt } from '../lib/lrc';
@@ -111,6 +112,7 @@
     aria-modal="true"
     aria-label="正在播放"
     tabindex="-1"
+    use:focusTrap={{ initial: 'container' }}
     ontouchstart={dragStart}
     ontouchmove={dragMove}
     ontouchend={dragEnd}

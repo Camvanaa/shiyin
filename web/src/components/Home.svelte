@@ -85,6 +85,14 @@
     </section>
   {/if}
 
+  {#if !app.homeLoading && !app.feed}
+    <div class="blank">
+      <Icon name="compass" size={28} />
+      <div class="blank-title">内容加载失败</div>
+      <div class="blank-sub">{app.homeError || '请检查网络后重试'}</div>
+      <button class="btn primary" onclick={() => app.loadHome()} style="margin-top:8px">重试</button>
+    </div>
+  {:else}
   <section>
     <div class="sec-head"><h2>推荐歌单</h2></div>
     <div class="shelf">
@@ -160,6 +168,7 @@
       </section>
     {/if}
   {/if}
+  {/if}
 </div>
 
 {#snippet playlistCard(p: PlaylistBrief, i: number)}
@@ -200,6 +209,31 @@
 <style>
   .home {
     padding: 4px 4px 32px;
+  }
+  .blank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 64px 20px;
+    text-align: center;
+    color: var(--fg-3);
+    animation: rise var(--t-slow) var(--ease-out) backwards;
+  }
+  .blank :global(svg) {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+  .blank-title {
+    font-size: var(--fs-headline);
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .blank-sub {
+    font-size: var(--fs-footnote);
+    color: var(--fg-2);
   }
   .page-head {
     display: flex;

@@ -59,6 +59,8 @@
   }
 
   const v = $derived(app.view);
+  /** 有全屏浮层时，主界面整体 inert，键盘/读屏不会跑到浮层后面 */
+  const modalOpen = $derived(!!app.sheet || player.expanded);
   const showBack = $derived(!['home', 'search-home', 'settings', 'downloads'].includes(v.kind));
   /** 自带大标题的页面：顶栏小标题仅在滚动后出现 */
   const hasLargeTitle = $derived(['home', 'settings', 'downloads'].includes(v.kind));
@@ -85,8 +87,9 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="shell" class:has-player={!!player.current}>
+<div class="shell" class:has-player={!!player.current} inert={modalOpen || undefined}>
   <header class="top" class:scrolled>
+    {#if app.loading}<div class="loadbar" role="progressbar" aria-label="加载中"></div>{/if}
     <div class="top-left">
       {#if showBack}
         <button class="icon-btn" onclick={() => app.back()} aria-label="返回" title="返回"><Icon name="back" stroke={2} /></button>
@@ -136,7 +139,7 @@
   <main bind:this={scroller} onscroll={onScroll}>
     <div class="page">
       {#if app.error}
-        <div class="error">
+        <div class="error" role="alert">
           <span>{app.error}</span>
           <button class="btn plain" onclick={() => (app.error = '')}>关闭</button>
         </div>
@@ -231,6 +234,33 @@
   }
   .top.scrolled {
     border-bottom-color: var(--line);
+  }
+  /* 移动端此前打开歌单/歌曲没有任何加载指示，这里用一个顶部细进度条兜底 */
+  .loadbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    overflow: hidden;
+    background: var(--accent-soft);
+  }
+  .loadbar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    animation: loadslide 1.1s var(--ease-in-out) infinite;
+  }
+  @keyframes loadslide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(250%);
+    }
   }
   .top-left {
     display: flex;

@@ -374,7 +374,7 @@ if (r.trial && settings.autoFallback) { ...  // 只有"拿到试听"才去找替
 
 ### 3.2 P1：体验与设计系统（一次成型，避免返工）
 
-> 执行进度：3.2.1 设计令牌 ✅ ｜ 3.2.2 来源筛选 ✅ ｜ 3.2.4 焦点 ⏳ ｜ 3.2.5 状态反馈 ⏳ ｜ 3.2.3 布局/3.2.6 见其他小节
+> 执行进度：3.2.1 设计令牌 ✅ ｜ 3.2.2 来源筛选 ✅ ｜ 3.2.4 焦点 ✅ ｜ 3.2.5 状态反馈 ✅ ｜ 3.2.3 布局/3.2.6 见其他小节
 
 **3.2.1 设计令牌完整化**（先做，后面所有 UI 工作都受益）
 
@@ -446,6 +446,30 @@ if (r.trial && settings.autoFallback) { ...  // 只有"拿到试听"才去找替
 - 删除了上一轮为 5 个 tab 换行打的 `repeat(auto-fit, minmax(0,1fr))` 补丁。
 
 **核验**：`svelte-check` 0 错；`vite build` 通过；本地实测桌面首页/结果页显示下拉、手机首页/搜索/结果页显示胶囊且不换行（截图 `v4-d-home/d-results/m-home/m-search/m-results.png`）。
+
+### 3.2.8 第 2 步执行记录（焦点管理 + 状态反馈）
+
+**焦点管理** —— 新增 `web/src/lib/focusTrap.ts`（Svelte action）：
+
+- 出现时把焦点移入容器（默认聚焦内容区第一个可交互元素，跳过头部关闭按钮；`initial:'container'` 则聚焦容器本身）。
+- Tab / Shift+Tab 循环限制在容器内；焦点若跑到容器外会被拉回。
+- 卸载时把焦点恢复到打开前的触发元素（该元素仍在 DOM 时）。
+- 接入三处模态：`Sheet`（设置/登录/下载/队列）、`NowPlaying`、`PlayerPanel`。
+- 主界面 `<div class="shell">` 在任一浮层打开时设 `inert`（`modalOpen = app.sheet || player.expanded`），键盘与读屏不会进入浮层背后。
+- 顺带修掉 `PlayerPanel` 的 `<aside role="dialog">`（非交互元素挂交互 role 的 a11y 警告），改为 `<div role="dialog">`。
+
+**状态反馈**：
+
+| 场景 | 之前 | 现在 |
+| --- | --- | --- |
+| 搜索/歌单空结果 | 只显示"0 首"+空列表 | `CollectionView` 新增空态：图标 + 标题 + 引导（区分"没有找到相关歌曲"/"没有匹配的歌曲"/"这里还没有歌曲"，各带不同副文案） |
+| 首页接口失败 | `catch(() => {})` 完全吞掉 | 记录 `app.homeError`，toast 报错并带"重试"按钮，`Home` 顶部显示可重试的错误态 |
+| 移动端打开歌单/歌曲 | 无任何加载指示 | 顶栏下沿新增全局细进度条（`app.loading` 驱动，`role="progressbar"`） |
+| 自动跳过不可播放曲目 | 静默跳过 | toast 提示"已跳过《X》· 无可用音源，正在播放下一个" |
+| 全局错误横幅 | 无 live region | 加 `role="alert"` |
+
+**核验**：`svelte-check` 0 错；`vite build` 通过；本地实测浮层打开时 `.shell[inert]` 存在、连按 15 次 Tab 焦点始终在 dialog 内、关闭后 inert 移除；空态在"列表筛选无结果"时正确显示（截图 `v4-d-empty2.png`）。
+
 
 
 ### 3.3 P2：性能（可独立并行）

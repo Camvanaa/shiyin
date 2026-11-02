@@ -152,9 +152,51 @@
   {onreachend}
 />
 
+{#if !shown.length}
+  <div class="blank">
+    <Icon name={kind === 'search' ? 'search' : 'note'} size={28} />
+    <div class="blank-title">{filter.trim() ? '没有匹配的歌曲' : kind === 'search' ? '没有找到相关歌曲' : '这里还没有歌曲'}</div>
+    <div class="blank-sub">
+      {#if filter.trim()}
+        换个关键词，或清空筛选
+      {:else if kind === 'search'}
+        试试其它关键词，或在搜索框左侧切换音源
+      {:else}
+        换个音源或稍后再看看
+      {/if}
+    </div>
+  </div>
+{/if}
+
 {#if footer}{@render footer()}{/if}
 
 <style>
+  .blank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 56px 20px 72px;
+    text-align: center;
+    color: var(--fg-3);
+    animation: rise var(--t-slow) var(--ease-out) backwards;
+  }
+  .blank :global(svg) {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+  .blank-title {
+    font-size: var(--fs-headline);
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .blank-sub {
+    font-size: var(--fs-footnote);
+    color: var(--fg-2);
+    max-width: 320px;
+  }
   .head {
     display: flex;
     gap: 32px;
