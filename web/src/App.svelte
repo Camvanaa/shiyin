@@ -2,15 +2,11 @@
   import Icon from './components/Icon.svelte';
   import SearchBox from './components/SearchBox.svelte';
   import SourceFilter from './components/SourceFilter.svelte';
+  import Sidebar from './components/Sidebar.svelte';
   import Home from './components/Home.svelte';
   import CollectionView from './components/CollectionView.svelte';
   import SongView from './components/SongView.svelte';
   import PlayerBar from './components/PlayerBar.svelte';
-  import NowPlaying from './components/NowPlaying.svelte';
-  import Downloads from './components/Downloads.svelte';
-  import Queue from './components/Queue.svelte';
-  import Settings from './components/Settings.svelte';
-  import Login from './components/Login.svelte';
   import TokenPrompt from './components/TokenPrompt.svelte';
   import Toasts from './components/Toasts.svelte';
   import MobileTabBar from './components/MobileTabBar.svelte';
@@ -61,6 +57,27 @@
   const v = $derived(app.view);
   /** 有全屏浮层时，主界面整体 inert，键盘/读屏不会跑到浮层后面 */
   const modalOpen = $derived(!!app.sheet || player.expanded);
+
+  // 只在首次需要时才加载浮层组件（首屏包瘦身）。加载后保持挂载，退场动画才完整。
+  const lazy = $state({ login: false, settings: false, downloads: false, queue: false, nowPlaying: false });
+  $effect(() => {
+    const s = app.sheet;
+    if (s && s !== 'token') lazy[s] = true;
+    if (player.expanded) lazy.nowPlaying = true;
+  });
+  // 空闲时预热：展开播放页/打开设置不会看到加载延迟
+  $effect(() => {
+    const idle = () => {
+      import('./components/NowPlaying.svelte');
+      import('./components/Settings.svelte');
+      import('./components/Login.svelte');
+      import('./components/Downloads.svelte');
+      import('./components/Queue.svelte');
+    };
+    const w = globalThis as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(idle, { timeout: 3000 });
+    else setTimeout(idle, 2500);
+  });
   const showBack = $derived(!['home', 'search-home', 'settings', 'downloads'].includes(v.kind));
   /** 自带大标题的页面：顶栏小标题仅在滚动后出现 */
   const hasLargeTitle = $derived(['home', 'settings', 'downloads'].includes(v.kind));
@@ -88,6 +105,10 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="shell" class:has-player={!!player.current} inert={modalOpen || undefined}>
+  <div class="side-slot">
+    <Sidebar />
+  </div>
+  <div class="col">
   <header class="top" class:scrolled>
     {#if app.loading}<div class="loadbar" role="progressbar" aria-label="加载中"></div>{/if}
     <div class="top-left">
@@ -107,7 +128,7 @@
 
     <div class="top-right">
       <div class="desktop-only">
-        <button class="icon-btn" class:on={v.kind === 'history'} onclick={() => app.openHistory()} aria-label="最近播放" title="最近播放">
+        <button class="icon-btn nav-dup" class:on={v.kind === 'history'} onclick={() => app.openHistory()} aria-label="最近播放" title="最近播放">
           <Icon name="clock" />
         </button>
         <button
@@ -120,11 +141,11 @@
         >
           <Icon name="queue" />
         </button>
-        <button class="icon-btn dl" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
+        <button class="icon-btn dl nav-dup" class:on={app.sheet === 'downloads'} onclick={() => (app.sheet = 'downloads')} aria-label="下载" title="下载">
           <Icon name="download" />
           {#if app.activeJobs}<span class="count tabular">{app.activeJobs}</span>{/if}
         </button>
-        <button class="icon-btn" onclick={() => (app.sheet = 'settings')} aria-label="设置" title="设置 (⌘,)"><Icon name="settings" /></button>
+        <button class="icon-btn nav-dup" onclick={() => (app.sheet = 'settings')} aria-label="设置" title="设置 (⌘,)"><Icon name="settings" /></button>
       </div>
       <button class="avatar" class:hide-mobile={v.kind === 'settings'} onclick={() => (app.sheet = 'login')} aria-label="账号" title={app.account?.nickname ?? '登录'}>
         {#if app.account}
@@ -204,13 +225,14 @@
     <MobilePlayerPill />
     <MobileTabBar />
   </div>
+  </div>
 </div>
 
-<NowPlaying />
-<Downloads />
-<Queue />
-<Settings />
-<Login />
+{#if lazy.nowPlaying}{#await import('./components/NowPlaying.svelte') then { default: C }}<C />{/await}{/if}
+{#if lazy.downloads}{#await import('./components/Downloads.svelte') then { default: C }}<C />{/await}{/if}
+{#if lazy.queue}{#await import('./components/Queue.svelte') then { default: C }}<C />{/await}{/if}
+{#if lazy.settings}{#await import('./components/Settings.svelte') then { default: C }}<C />{/await}{/if}
+{#if lazy.login}{#await import('./components/Login.svelte') then { default: C }}<C />{/await}{/if}
 <TokenPrompt />
 <Toasts />
 
@@ -218,7 +240,16 @@
   .shell {
     height: 100%;
     display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .side-slot {
+    display: none;
+  }
+  .col {
+    display: grid;
     grid-template-rows: var(--topbar) minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
   }
   .top {
     position: relative;
@@ -400,8 +431,34 @@
     font-size: var(--fs-footnote);
   }
 
+  /* 桌面（≥900px）：显示侧边栏，顶栏的导航图标让位给侧边栏 */
+  @media (min-width: 900px) {
+    .side-slot {
+      display: flex;
+      width: 232px;
+    }
+    .top-left .brand {
+      display: none;
+    }
+    /* 最近播放 / 下载 / 设置 已在侧边栏，顶栏只留播放列表 */
+    .top-right .desktop-only .icon-btn.nav-dup {
+      display: none;
+    }
+    .page {
+      padding: 12px 32px 48px;
+    }
+  }
+  @media (min-width: 900px) and (max-width: 1080px) {
+    .side-slot {
+      width: 64px;
+    }
+  }
+
   @media (max-width: 640px) {
     .shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .col {
       grid-template-rows: 48px minmax(0, 1fr);
     }
     .top {

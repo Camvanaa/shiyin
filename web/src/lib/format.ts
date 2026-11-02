@@ -18,13 +18,39 @@ export function artists(t: { artists: { name: string }[] }): string {
   return t.artists.map((a) => a.name).join(' / ');
 }
 
-/** 封面按显示尺寸裁剪（仅网易云支持 ?param=，其他平台用原图） */
+/** 封面按显示尺寸裁剪（各平台用各自的尺寸参数；无法裁剪的返回原图） */
 export function img(url: string, css: number): string {
   if (!url) return '';
-  if (!url.includes('126.net')) return url;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const px = [64, 100, 160, 240, 400, 640, 800].find((s) => s >= css * dpr) ?? 800;
-  return `${url.split('?')[0]}?param=${px}y${px}`;
+  const want = css * dpr;
+
+  // 网易云：?param=NyN
+  if (url.includes('126.net')) {
+    const px = [64, 100, 160, 240, 400, 640, 800, 1024].find((s) => s >= want) ?? 1024;
+    return `${url.split('?')[0]}?param=${px}y${px}`;
+  }
+
+  // QQ 音乐：y.gtimg.cn/.../T002R{Px}{Px}M000{mid}.jpg
+  // 形如 .../T002R300x300M000003h24VO1pTh6K.jpg，把中间的 {n}x{n} 换掉
+  if (url.includes('y.gtimg.cn') || url.includes('y.qq.com')) {
+    const px = [150, 300, 500, 800].find((s) => s >= want) ?? 800;
+    const out = url.replace(/R\d+x\d+M000/, `R${px}x${px}M000`).replace(/\/(\d+)\?n=1$/, `/${px}?n=1`);
+    return out;
+  }
+
+  // 酷我：.../albumcover/{size}/... 或 .../star/albumcover/{size}/...
+  if (url.includes('kuwo.cn')) {
+    const px = [120, 500].find((s) => s >= want) ?? 500;
+    return url.replace(/\/albumcover\/\d+\//, `/albumcover/${px}/`);
+  }
+
+  // Apple：.../{w}x{h}bb.jpg
+  if (url.includes('mzstatic.com')) {
+    const px = [60, 120, 200, 400, 600, 1000].find((s) => s >= want) ?? 1000;
+    return url.replace(/\/\d+x\d+bb\./, `/${px}x${px}bb.`);
+  }
+
+  return url;
 }
 
 export function year(ts: number | null): string {

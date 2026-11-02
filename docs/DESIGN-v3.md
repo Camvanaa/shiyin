@@ -572,8 +572,8 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 | 阶段 | 内容 | 交付物 | 状态 |
 | --- | --- | --- | --- |
 | **第 1 步** | P0 全部 5 项 + 3.2.6 Media Session | 一个可验证的 bugfix 提交，线上复验 | ✅ 已完成（见 3.8） |
-| **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 | ⏳ |
-| **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 | ⏳ |
+| **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 | ✅ 已完成（见 3.2.7–3.2.9） |
+| **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 | ✅ 已完成（见 3.9） |
 | **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） | ⏳ |
 | **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 | ⏳ |
 | **第 6 步** | 3.4.4 平台集成 + P4 工程健康度 | 分平台发布 | ⏳ |
@@ -581,10 +581,29 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 每一步完成都把结论回写本文档（第 3 部分按阶段打勾）。
 
 ### 3.7 每一步的验证清单
-
 - 前端：`npx svelte-check` 0 错 → `npx vite build` → 线上 Playwright 复测关键指标（首屏包体积、行高、来源切换、移动端）。
 - 后端：`cargo test -p shiyin-core` → 新增测试通过 → `cargo check -p shiyin-server` → CI 三流水线绿。
 - 部署：`gh run watch` → `./deploy/update-preview.sh <RUN_ID>` → `systemctl is-active shiyin` + 无 panic。
+
+### 3.9 第 3 步执行记录（桌面侧边栏 + 性能）
+
+**桌面三段式侧边栏（新增 `Sidebar.svelte`）**：
+
+- `App.svelte` 的壳体从"顶栏/内容/播放条"三行改为"侧边栏列 + 内容列"两列网格；内容列内部仍是三行。
+- 侧边栏含：品牌区、主导航（主页 / 搜索）、"我的"分组（最近播放 / 下载，带进行中任务数徽标）、底部账号与设置入口。
+- 断点：≥1080px 完整 232px；900–1080px 折叠为 64px 图标栏；<900px 整体隐藏，顶栏图标接管（此时顶栏的最近播放/下载/设置图标恢复显示，`nav-dup` 类控制）。
+- 首屏包因此变小：`main` 从 134.8KB（gzip 45.4KB）→ **72.6KB（gzip 24.5KB）**。
+
+**性能（P2）**：
+
+| 项 | 改动 | 效果 |
+| --- | --- | --- |
+| 首屏拆包 | `NowPlaying`/`Settings`/`Login`/`Downloads`/`Queue` 改为按需 `await import()`，首次打开才加载、之后保持挂载（退场动画完整）；空闲时 `requestIdleCallback` 预热 | 主包 gzip 45.4 → **24.5KB**；CSS 79KB → 48.6KB（gzip 8.2KB） |
+| 封面通用裁剪 | `img()` 从"只裁网易云"扩展到 QQ（`R{n}x{n}M000`）、酷我（`albumcover/{n}`）、Apple（`{n}x{n}bb`）；列表 40px 封面由 300–600px 原图降到 120–150px | 实测 QQ `T002R150x150`、酷我 `albumcover/120`、Apple `60x60bb`；列表图片流量大幅下降 |
+| 桌面广播节流 | `desktop.svelte.ts` 的 broadcast 先用廉价字段（曲目/暂停/主题色/时长）判断，非进度变化立即广播，纯进度推进才走 500ms 时间闸门 | 常驻开销下降，且不会漏掉暂停等瞬时状态 |
+| 每帧 effect | `NowPlaying` 的歌词 effect 本就以 `expanded` 守卫，且组件改为懒加载——折叠态不再有任何每帧调度 | 折叠态零开销 |
+
+**核验**：`svelte-check` 0 错；`vite build` 通过；本地实测侧边栏 232 / 64 / 隐藏三档正确、顶栏图标在 <900px 恢复、懒加载的播放页/队列/设置均正常打开、各源封面裁剪后仍能加载（17/17）。截图 `v5-d-home.png`、`v5-d-narrow.png`。
 
 ### 3.8 第 1 步执行记录（P0 + Media Session）
 

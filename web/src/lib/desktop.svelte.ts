@@ -15,6 +15,8 @@ export const desktop = $state({
 
 let lastKey = '';
 let lastSent = 0;
+let lastCheck = 0;
+let lastCheap = '';
 
 function snapshot(): BridgeState {
   const t = player.current;
@@ -41,9 +43,15 @@ function snapshot(): BridgeState {
 /** 只在关键状态变化时广播；进度由子窗口自行推算，另外每 5 秒校准一次 */
 function broadcast(force = false) {
   if (!desktop.lyrics && !desktop.mini) return;
+  // player.time 约 10Hz 触发本函数。先用廉价字段判断是否发生了"非进度"变化
+  // （切歌 / 播放暂停 / 主题色 / 时长），这类变化必须立即广播；纯进度推进才走时间闸门。
+  const cheap = `${player.current?.id ?? ''}|${player.current?.source ?? ''}|${player.playing}|${player.tint}|${Math.round(player.duration)}`;
+  const now = Date.now();
+  if (!force && cheap === lastCheap && now - lastCheck < 500) return;
+  lastCheap = cheap;
+  lastCheck = now;
   const s = snapshot();
   const key = `${s.track?.id}|${s.playing}|${s.line}|${s.tint}|${Math.round(s.duration)}`;
-  const now = Date.now();
   if (!force && key === lastKey && now - lastSent < 5000) return;
   lastKey = key;
   lastSent = now;
