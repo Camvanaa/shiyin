@@ -500,14 +500,14 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 
 ### 3.6 建议排期
 
-| 阶段 | 内容 | 交付物 |
-| --- | --- | --- |
-| **第 1 步（本次）** | P0 全部 5 项 + 3.2.6 Media Session | 一个可验证的 bugfix 提交，线上复验 |
-| **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 |
-| **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 |
-| **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） |
-| **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 |
-| **第 6 步** | 3.4.4 平台集成 + P4 工程健康度 | 分平台发布 |
+| 阶段 | 内容 | 交付物 | 状态 |
+| --- | --- | --- | --- |
+| **第 1 步** | P0 全部 5 项 + 3.2.6 Media Session | 一个可验证的 bugfix 提交，线上复验 | ✅ 已完成（见 3.8） |
+| **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 | ⏳ |
+| **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 | ⏳ |
+| **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） | ⏳ |
+| **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 | ⏳ |
+| **第 6 步** | 3.4.4 平台集成 + P4 工程健康度 | 分平台发布 | ⏳ |
 
 每一步完成都把结论回写本文档（第 3 部分按阶段打勾）。
 
@@ -516,4 +516,26 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 - 前端：`npx svelte-check` 0 错 → `npx vite build` → 线上 Playwright 复测关键指标（首屏包体积、行高、来源切换、移动端）。
 - 后端：`cargo test -p shiyin-core` → 新增测试通过 → `cargo check -p shiyin-server` → CI 三流水线绿。
 - 部署：`gh run watch` → `./deploy/update-preview.sh <RUN_ID>` → `systemctl is-active shiyin` + 无 panic。
+
+### 3.8 第 1 步执行记录（P0 + Media Session）
+
+改动文件：`web/src/components/TrackList.svelte`、`web/src/lib/player.svelte.ts`。
+
+| 条目 | 具体改动 |
+| --- | --- |
+| P0-1 行高 | `.list` 定义 `--row-h`（桌面 56 / ≤760px 58），`.row` 用 `var(--row-h)`；JS 从 `getComputedStyle` 读取，`ROW` 改为 `$state`，断点变化时经 `ResizeObserver` 重算 |
+| P0-2 跨曲 seek | `loadedmetadata` 监听内比对 `#token`，token 已变则忽略；`restore()` 同样加 token 守卫 |
+| P0-3 会话持久化 | 拆两个 key：`shiyin.session`（队列，仅在队列/索引变化时写）+ `shiyin.session.pos`（进度，5 秒一次的小对象）；恢复时合并两者 |
+| P0-4 换源 seek | `switchSource` 记录 `before = #token`，`#load(true)` 后仅当 `#token === before + 1 && index === i` 时才 seek |
+| P0-5 播放拒绝 | `play()` 的 rejection 不再静默，回退 `playing=false` 并 toast 提示 |
+| 3.2.6 Media Session | 新增 `#syncPlaybackState()`（play/pause 时设置 `playbackState`）、ticker 内每 ≥1s 调 `#syncPosition()`、注册 `stop` action、artwork 尺寸与实际取图（512）一致 |
+
+**本地实测（vite dev + Playwright）：**
+
+- 700px 宽下 `.row` = 58px，`.list` 内联高 1856px = 32 × 58（此前按 56 计算为 1792）。
+- 390px 手机宽下 `.row` = 58px，滚到底部最后一行完整可见、无空白（截图 `v3-m-listbottom.png`）。
+- 刷新后从两个 key 恢复 32 首队列且曲目已加载（暂停态）。
+- Apple 结果页播放到 `0:07 / 1:30` 后点下一首，新曲显示 `0:02 / 1:30`（不再继承上一首位置）。
+- `svelte-check` 0 错；`vite build` 通过。
+
 

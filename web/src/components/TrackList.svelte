@@ -30,8 +30,9 @@
     onreachend?: () => void;
   } = $props();
 
-  const ROW = 56;
   const OVERSCAN = 10;
+  /** 行高以 CSS 为准（桌面 56 / 移动 58），从 .list 的 --row-h 读取，避免与样式表漂移 */
+  let ROW = $state(56);
 
   let host = $state<HTMLElement>();
   let start = $state(0);
@@ -39,6 +40,16 @@
 
   const visible = $derived(tracks.slice(start, end));
   const currentKey = $derived(player.current ? `${player.current.source}:${player.current.id}` : '');
+
+  function readRow() {
+    if (!host) return;
+    const v = parseFloat(getComputedStyle(host).getPropertyValue('--row-h'));
+    if (v > 0 && v !== ROW) {
+      ROW = v;
+      start = 0;
+      end = Math.max(end, 40);
+    }
+  }
 
   function measure() {
     if (!host || !scroller) return;
@@ -64,10 +75,16 @@
         measure();
       });
     };
+    readRow();
     measure();
     el.addEventListener('scroll', onScroll, { passive: true });
-    const ro = new ResizeObserver(onScroll);
+    const ro = new ResizeObserver(() => {
+      readRow();
+      onScroll();
+    });
     ro.observe(el);
+    // 行高随断点变化，监听自身尺寸一并重算
+    ro.observe(host!);
     return () => {
       el.removeEventListener('scroll', onScroll);
       ro.disconnect();
@@ -214,6 +231,7 @@
     position: relative;
     contain: strict;
     width: 100%;
+    --row-h: 56px;
   }
   .window {
     position: absolute;
@@ -221,7 +239,7 @@
     will-change: transform;
   }
   .row {
-    height: 56px;
+    height: var(--row-h);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.7fr) 52px 72px;
     align-items: center;
@@ -476,11 +494,14 @@
   }
 
   @media (max-width: 760px) {
+    .list {
+      --row-h: 58px;
+    }
     .row {
       grid-template-columns: auto minmax(0, 1fr) 44px;
       gap: 10px;
       padding: 0 2px 0 4px;
-      height: 58px;
+      height: var(--row-h);
     }
     .row:has(.check) {
       grid-template-columns: 28px auto minmax(0, 1fr) 44px;

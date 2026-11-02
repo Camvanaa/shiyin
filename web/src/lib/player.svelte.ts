@@ -48,12 +48,14 @@ class Player {
     a.addEventListener('play', () => {
       this.playing = true;
       this.#startTicker();
+      this.#syncPlaybackState();
       if (this.current) recordPlay(this.current);
     });
     a.addEventListener('pause', () => {
       this.playing = false;
       this.time = this.frameTime = a.currentTime;
       this.#syncPosition();
+      this.#syncPlaybackState();
     });
     a.addEventListener('waiting', () => (this.loading = true));
     a.addEventListener('playing', () => (this.loading = false));
@@ -82,20 +84,30 @@ class Player {
 
   #persist() {
     try {
-      const t = this.current;
       localStorage.setItem(
         'shiyin.session',
         JSON.stringify({
           queue: this.queue,
           index: this.index,
-          time: this.#audio.currentTime || this.time,
           repeat: this.repeat,
           shuffle: this.shuffle,
         }),
       );
-      void t;
+      this.#persistPos();
     } catch {
       /* 隐私模式等场景下配额不足，忽略 */
+    }
+  }
+
+  /** 进度单独存一个很小的 key：每 5 秒只需写它，不必序列化整个队列 */
+  #persistPos() {
+    try {
+      localStorage.setItem(
+        'shiyin.session.pos',
+        JSON.stringify({ index: this.index, time: this.#audio.currentTime || this.time }),
+      );
+    } catch {
+      /* 忽略 */
     }
   }
 
@@ -112,6 +124,13 @@ class Player {
       this.restored = true;
       return;
     }
+    // 进度可能在单独的 key 里更新过（队列大时不重复序列化）
+    try {
+      const pos = JSON.parse(localStorage.getItem('shiyin.session.pos') ?? 'null') as { index: number; time: number } | null;
+      if (pos && pos.index === saved.index && typeof pos.time === 'number') saved.time = pos.time;
+    } catch {
+      /* 忽略 */
+    }
     this.queue = saved.queue;
     this.index = saved.index;
     if (saved.repeat) this.repeat = saved.repeat;
@@ -122,25 +141,33 @@ class Player {
     this.#updateMetadata();
     extractTint(t.cover).then((c) => (this.tint = c));
     api.lyric(t.id, t.source).then((l) => (this.lyric = parseLyric(l.lrc, l.tlrc))).catch(() => {});
+    const token = this.#token;
     try {
       const u = await this.#resolveUrl(t);
+      if (token !== this.#token) return this.#doneRestore();
       this.quality = u.level;
       this.trial = u.trial;
       this.matchedFrom = u.from !== t.source ? u.from : '';
       this.#srcAt = Date.now();
       this.#audio.src = u.url;
+      const pos = this.time;
       this.#audio.addEventListener('loadedmetadata', () => {
-        if (this.#audio.duration > 0 && this.time < this.#audio.duration) this.#audio.currentTime = this.time;
+        if (token !== this.#token) return;
+        if (this.#audio.duration > 0 && pos < this.#audio.duration) this.#audio.currentTime = pos;
       }, { once: true });
     } catch {
       /* 恢复失败就保持暂停，用户点播放时会重新解析 */
     }
+    this.#doneRestore();
+  }
+  #doneRestore() {
     this.restored = true;
   }
 
   #raf = 0;
   #lastTimeWrite = 0;
   #lastPersist = 0;
+  #lastPosSync = 0;
   #startTicker() {
     if (this.#raf) return;
     const tick = (now: number) => {
@@ -158,7 +185,12 @@ class Player {
         }
         if (now - this.#lastPersist >= 5000) {
           this.#lastPersist = now;
-          this.#persist();
+          this.#persistPos();
+        }
+        // 锁屏/通知栏进度条需要定期刷新，不能只在暂停或 seek 时更新
+        if (now - this.#lastPosSync >= 1000) {
+          this.#lastPosSync = now;
+          this.#syncPosition();
         }
       }
       this.#raf = requestAnimationFrame(tick);
@@ -259,9 +291,24 @@ class Player {
       this.#audio.src = u.url;
       if (resume) {
         const a = this.#audio;
-        a.addEventListener('loadedmetadata', () => (a.currentTime = resume), { once: true });
+        // token 已变（快速切歌）时不要把上一首的位置写到新曲
+        a.addEventListener(
+          'loadedmetadata',
+          () => {
+            if (token === this.#token) a.currentTime = resume;
+          },
+          { once: true },
+        );
       }
-      await this.#audio.play().catch(() => {});
+      try {
+        await this.#audio.play();
+      } catch (err) {
+        if (token === this.#token) {
+          this.loading = false;
+          this.playing = false;
+          toast.error(`「${t.name}」播放被中断`, (err as Error)?.message || '请点击播放按钮重试');
+        }
+      }
       this.#preloadNext();
     } catch (e) {
       if (token !== this.#token) return;
@@ -429,9 +476,11 @@ class Player {
     });
     const resume = this.#audio.currentTime;
     const wasPlaying = !this.#audio.paused;
+    const before = this.#token;
     this.queue = this.queue.map((t, k) => (k === i ? c.track : t));
     await this.#load(true);
-    if (resume > 0) this.seek(resume);
+    // #load 会让 token +1；若之后又有人切歌，token 会继续增长，此时不要再 seek 到新曲
+    if (resume > 0 && this.#token === before + 1 && this.index === i) this.seek(resume);
     if (!wasPlaying) this.#audio.pause();
     this.#persist();
   }
@@ -456,6 +505,7 @@ class Player {
     this.expanded = false;
     try {
       localStorage.removeItem('shiyin.session');
+      localStorage.removeItem('shiyin.session.pos');
     } catch {
       /* 忽略 */
     }
@@ -541,16 +591,30 @@ class Player {
     safe('seekto', (d) => d.seekTime != null && this.seek(d.seekTime));
     safe('seekbackward', (d) => this.seek(this.#audio.currentTime - (d.seekOffset ?? 10)));
     safe('seekforward', (d) => this.seek(this.#audio.currentTime + (d.seekOffset ?? 10)));
+    safe('stop', () => this.stop());
+    this.#syncPlaybackState();
+  }
+
+  /** 通知系统当前播放状态，锁屏/通知栏按钮才不会与实际情况不符 */
+  #syncPlaybackState() {
+    const ms = navigator.mediaSession;
+    if (!ms) return;
+    try {
+      ms.playbackState = this.#audio.paused ? 'paused' : 'playing';
+    } catch {
+      /* 某些 WebView 不支持 */
+    }
   }
 
   #updateMetadata() {
     const t = this.current;
     if (!t || !navigator.mediaSession || typeof MediaMetadata === 'undefined') return;
+    const cover = t.cover ? img(t.cover, 512) : '';
     navigator.mediaSession.metadata = new MediaMetadata({
       title: t.name,
       artist: artists(t),
       album: t.album,
-      artwork: t.cover ? [{ src: img(t.cover, 256), sizes: '512x512', type: 'image/jpeg' }] : [],
+      artwork: cover ? [{ src: cover, sizes: '512x512', type: 'image/jpeg' }] : [],
     });
     document.title = `${t.name} · ${artists(t)}`;
   }
