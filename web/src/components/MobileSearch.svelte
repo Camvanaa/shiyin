@@ -272,7 +272,7 @@
     color: var(--fg);
   }
   .chip-rm {
-    width: 30px;
+    width: 44px;
     height: 100%;
     display: grid;
     place-items: center;

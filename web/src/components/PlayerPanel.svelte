@@ -577,8 +577,8 @@
       display: none;
     }
     .ops .icon-btn {
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
     }
     .levels {
       grid-template-columns: 1fr 1fr;

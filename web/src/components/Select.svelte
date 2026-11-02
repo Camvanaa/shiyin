@@ -311,7 +311,7 @@
   /* ---- 移动端：底部动作表 ---- */
   @media (max-width: 640px) {
     .trigger {
-      height: 32px;
+      height: 44px;
       font-size: var(--fs-callout);
       background: transparent;
       box-shadow: none;
