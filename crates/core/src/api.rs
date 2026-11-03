@@ -91,6 +91,8 @@ pub(crate) fn parse_track_with(v: &Value, privilege: &Value) -> Track {
         duration: u(&v["dt"]),
         fee,
         availability: availability(fee, privilege),
+        // 网易云列表接口不返回 ISRC；详情接口才有（见 track 方法）
+        isrc: None,
     }
 }
 
@@ -468,6 +470,7 @@ impl Netease {
                                 duration: u(&sg["duration"]),
                                 fee,
                                 availability: availability(fee, &sg["privilege"]),
+                                isrc: None,
                             })
                         })
                         .collect()

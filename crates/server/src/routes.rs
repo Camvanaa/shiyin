@@ -82,6 +82,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/home", get(home))
         .route("/resolve", get(resolve))
         .route("/search", get(search))
+        .route("/search/merged", get(search_merged))
         .route("/song/{id}", get(song))
         .route("/url/{id}", get(song_url))
         .route("/lyric/{id}", get(lyric))
@@ -90,6 +91,7 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/toplist/{id}", get(toplist))
         .route("/match", get(match_playable))
         .route("/match/all", get(match_candidates))
+        .route("/work/resolve", post(resolve_playable))
         .route("/account", get(account).delete(logout))
         .route("/account/cookie", post(set_cookie))
         .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
@@ -211,6 +213,12 @@ async fn search(State(c): State<Ctx>, Query(q): Query<SearchQ>) -> R<Vec<Track>>
     Ok(Json((*c.app.sources.search(&q.source, &q.q, q.limit, q.offset).await?).clone()))
 }
 
+/// 聚合搜索并按「作品」合并：同一首歌的不同平台版本归并为一个 Work。
+/// 与 `/search` 并存，前端聚合视图用它。
+async fn search_merged(State(c): State<Ctx>, Query(q): Query<SearchQ>) -> R<Vec<shiyin_core::Work>> {
+    Ok(Json(c.app.sources.search_merged(&q.q, q.limit, q.offset).await))
+}
+
 async fn song(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Query(q): Query<SourceQ>) -> R<Track> {
     Ok(Json((*c.app.sources.track(&q.source, &id).await?).clone()))
 }
@@ -284,6 +292,36 @@ async fn match_candidates(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> Json
         .map(|(track, url)| json!({ "track": track, "url": url }))
         .collect();
     Json(json!(list))
+}
+
+/// 解析器：给定若干候选版本（按推荐度排序的 `source:id` 列表），
+/// 依次取播放地址，返回第一个能完整播放的版本；否则返回第一个能拿到地址的（试听）。
+/// 前端点播放时直接调它，把"换源择优"从前端搬到 core。
+#[derive(Deserialize)]
+struct ResolveBody {
+    /// 形如 ["qq:0039MnYb0qxYhV", "kuwo:228908"]，按推荐度排序
+    candidates: Vec<String>,
+    #[serde(default = "default_level")]
+    level: String,
+}
+
+async fn resolve_playable(State(c): State<Ctx>, Json(mut b): Json<ResolveBody>) -> R<Value> {
+    if b.candidates.is_empty() {
+        return Err(ApiError(StatusCode::BAD_REQUEST, "candidates 不能为空".into()));
+    }
+    let level = if b.level.is_empty() { default_level() } else { b.level.clone() };
+    let pairs: Vec<(String, String)> = b
+        .candidates
+        .drain(..)
+        .filter_map(|c| {
+            let (s, id) = c.split_once(':')?;
+            Some((s.to_owned(), id.to_owned()))
+        })
+        .collect();
+    let Some((track, url)) = c.app.sources.resolve_playable(&pairs, &level).await else {
+        return Err(ApiError(StatusCode::NOT_FOUND, "这些版本都拿不到播放地址".into()));
+    };
+    Ok(Json(json!({ "track": track, "url": url })))
 }
 
 #[derive(Deserialize)]

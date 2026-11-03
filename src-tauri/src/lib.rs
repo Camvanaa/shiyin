@@ -154,6 +154,28 @@ async fn search(s: State<'_, Ctx>, q: String, limit: u32, offset: u32, source: S
 }
 
 #[tauri::command]
+async fn search_merged(s: State<'_, Ctx>, q: String, limit: u32, offset: u32) -> R<Vec<shiyin_core::Work>> {
+    Ok(s.sources.search_merged(&q, limit, offset).await)
+}
+
+#[tauri::command]
+async fn resolve_work(s: State<'_, Ctx>, candidates: Vec<String>, level: String) -> R<Value> {
+    let pairs: Vec<(String, String)> = candidates
+        .into_iter()
+        .filter_map(|c| {
+            let (src, id) = c.split_once(':')?;
+            Some((src.to_owned(), id.to_owned()))
+        })
+        .collect();
+    let (track, url) = s
+        .sources
+        .resolve_playable(&pairs, &level)
+        .await
+        .ok_or_else(|| "这些版本都拿不到播放地址".to_owned())?;
+    Ok(json!({ "track": track, "url": url }))
+}
+
+#[tauri::command]
 async fn song(s: State<'_, Ctx>, id: String, source: String) -> R<Track> {
     s.sources.track(&source, &id).await.map(|t| (*t).clone()).map_err(e)
 }
@@ -435,6 +457,8 @@ pub fn run() {
             sources,
             resolve,
             search,
+            search_merged,
+            resolve_work,
             song,
             song_url,
             lyric,

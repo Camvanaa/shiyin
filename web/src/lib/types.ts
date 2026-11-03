@@ -17,6 +17,27 @@ export interface Track {
   fee: number;
   /** ok 可播放；vip 需会员（可能仅试听）；paid 需购买；none 无版权 */
   availability: 'ok' | 'vip' | 'paid' | 'none';
+  /** 国际标准录音编码（部分平台提供），用于跨平台合并 */
+  isrc?: string | null;
+  /**
+   * 前端附加：同一首歌在其它平台的版本（"source:id"，按推荐度排序），
+   * 由聚合搜索的 Work 合并结果带入。播放时交给后端解析器择优，不持久化。
+   */
+  alts?: { source: string; id: string }[];
+}
+
+/** 合并后的「作品」：同一首歌在不同平台的多个版本 */
+export interface Work {
+  /** 稳定标识（isrc:... 或 fp:...） */
+  key: string;
+  name: string;
+  artists: Artist[];
+  album: string;
+  duration: number;
+  cover: string;
+  coverSource: string;
+  /** 全部版本，按推荐度排序 */
+  renditions: Track[];
 }
 
 export interface Collection {

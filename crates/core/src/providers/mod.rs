@@ -15,6 +15,16 @@ pub(crate) fn s(v: &Value) -> String {
     })
 }
 
+/// 空字符串转 None（用于 isrc 这类可选字段）
+pub(crate) trait IntoEmptyNone {
+    fn into_empty_none(self) -> Option<String>;
+}
+impl IntoEmptyNone for String {
+    fn into_empty_none(self) -> Option<String> {
+        if self.trim().is_empty() { None } else { Some(self) }
+    }
+}
+
 pub(crate) fn u(v: &Value) -> u64 {
     v.as_u64()
         .or_else(|| v.as_f64().map(|f| f as u64))

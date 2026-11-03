@@ -103,6 +103,7 @@ impl Kuwo {
             duration: u(first_str(item, &["DURATION", "duration"])) * 1000,
             fee: 0,
             availability: Availability::Ok,
+            isrc: None,
         }
     }
 

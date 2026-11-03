@@ -177,6 +177,7 @@ mod tests {
                     id: "1".into(), source: "netease".into(), name: "a".into(), alias: None, artists: vec![],
                     album_id: String::new(), album: String::new(), cover: String::new(), duration: 0, fee: 0,
                     availability: Default::default(),
+                    isrc: None,
                 })
             }
         };

@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 use crate::model::*;
-use crate::providers::{s, u};
+use crate::providers::{s, u, IntoEmptyNone};
 use crate::source::{BoxFut, Source};
 
 const API: &str = "https://amp-api.music.apple.com/v1/catalog";
@@ -173,6 +173,7 @@ impl Apple {
             fee: 0,
             // 完整音频永远不可得；标记为 Vip 让 UI 显示试听而不是无版权
             availability: if has_preview { Availability::Vip } else { Availability::None },
+            isrc: s(&a["isrc"]).into_empty_none(),
         }
     }
 

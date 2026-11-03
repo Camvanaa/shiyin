@@ -1,7 +1,7 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
   Account, Captcha, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
-  SongUrl, SourceInfo, SourceOption, Track,
+  SongUrl, SourceInfo, SourceOption, Track, Work,
 } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -11,6 +11,10 @@ export interface Api {
   sources(): Promise<SourceInfo[]>;
   resolve(q: string): Promise<Resolved>;
   search(q: string, limit: number, offset?: number, source?: string): Promise<Track[]>;
+  /** 聚合搜索并按作品合并（同一首歌的不同平台版本归并为一） */
+  searchMerged(q: string, limit: number, offset?: number): Promise<Work[]>;
+  /** 解析器：给定候选版本（"source:id"，按推荐度排序），返回第一个可播版本 */
+  resolveWork(candidates: string[], level: string): Promise<{ track: Track; url: SongUrl }>;
   song(id: string, source?: string): Promise<Track>;
   songUrl(id: string, level: string, source?: string): Promise<SongUrl>;
   lyric(id: string, source?: string): Promise<Lyric>;
@@ -84,6 +88,8 @@ const httpApi: Api = {
   sources: () => http('GET', '/sources'),
   resolve: (q) => http('GET', `/resolve?q=${enc(q)}`),
   search: (q, limit, offset = 0, source = '') => http('GET', `/search?q=${enc(q)}&limit=${limit}&offset=${offset}&source=${enc(source)}`),
+  searchMerged: (q, limit, offset = 0) => http('GET', `/search/merged?q=${enc(q)}&limit=${limit}&offset=${offset}`),
+  resolveWork: (candidates, level) => http('POST', '/work/resolve', { candidates, level }),
   song: (id, source = '') => http('GET', `/song/${enc(id)}?source=${enc(source)}`),
   songUrl: (id, level, source = '') => http('GET', `/url/${enc(id)}?level=${enc(level)}&source=${enc(source)}`),
   lyric: (id, source = '') => http('GET', `/lyric/${enc(id)}?source=${enc(source)}`),
@@ -160,6 +166,8 @@ async function tauriApi(): Promise<Api> {
     sources: () => call('sources'),
     resolve: (q) => call('resolve', { q }),
     search: (q, limit, offset = 0, source = '') => call('search', { q, limit, offset, source }),
+    searchMerged: (q, limit, offset = 0) => call('search_merged', { q, limit, offset }),
+    resolveWork: (candidates, level) => call('resolve_work', { candidates, level }),
     song: (id, source = '') => call('song', { id, source }),
     songUrl: (id, level, source = '') => call('song_url', { id, level, source }),
     lyric: (id, source = '') => call('lyric', { id, source }),

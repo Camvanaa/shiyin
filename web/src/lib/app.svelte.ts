@@ -4,7 +4,16 @@ import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
 import { player } from './player.svelte';
 import { artists, sourceShort } from './format';
-import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track } from './types';
+import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track, Work } from './types';
+
+/** 合并结果 → 一行曲目：取"最可能完整播放"的版本为门面，其余放进 alts 供解析器择优。 */
+function workToTrack(w: Work): Track {
+  const rank = (t: Track) => (t.availability === 'ok' ? 0 : t.availability === 'vip' ? 1 : t.availability === 'paid' ? 2 : 3);
+  const sorted = [...w.renditions].sort((a, b) => rank(a) - rank(b));
+  const lead = sorted.find((t) => t.availability !== 'none') ?? sorted[0];
+  const alts = sorted.map((t) => ({ source: t.source, id: t.id }));
+  return { ...lead, cover: w.cover || lead.cover, alts };
+}
 
 export type View =
   | { kind: 'home' }
@@ -225,9 +234,17 @@ class AppState {
   async search(q: string) {
     q = q.trim();
     if (!q) return;
+    remember({ q, title: q, kind: 'query' });
+    // 聚合音源时用后端合并结果：同一首歌的不同平台版本只出现一行。
+    if (this.source === 'all') {
+      const works = await this.#run(() => api.searchMerged(q, settings.searchLimit, 0));
+      if (!works) return;
+      const tracks = works.map(workToTrack);
+      this.#go({ kind: 'search', q, tracks, done: tracks.length < settings.searchLimit, offset: tracks.length });
+      return;
+    }
     const tracks = await this.#run(() => api.search(q, settings.searchLimit, 0, this.source));
     if (!tracks) return;
-    remember({ q, title: q, kind: 'query' });
     this.#go({ kind: 'search', q, tracks, done: tracks.length < settings.searchLimit, offset: tracks.length });
   }
 
@@ -236,6 +253,16 @@ class AppState {
     if (v.kind !== 'search' || v.done || this.loading) return;
     this.loading = true;
     try {
+      if (this.source === 'all') {
+        const works = await api.searchMerged(v.q, settings.searchLimit, v.offset);
+        const merged = works.map(workToTrack);
+        v.offset += merged.length;
+        const have = new Set(v.tracks.map((t) => t.id + ':' + t.source));
+        const fresh = merged.filter((t) => !have.has(t.id + ':' + t.source));
+        v.tracks.push(...fresh);
+        v.done = merged.length === 0 || (fresh.length === 0 && merged.length < settings.searchLimit);
+        return;
+      }
       const more = await api.search(v.q, settings.searchLimit, v.offset, this.source);
       v.offset += more.length;
       const ids = new Set(v.tracks.map((t) => `${t.source}:${t.id}`));

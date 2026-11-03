@@ -170,6 +170,9 @@
           </div>
           <div class="sub ellipsis">
             <span class="badge src">{sourceShort(t.source)}</span>
+            {#if t.alts && t.alts.length > 1}
+              <span class="badge multi" title={`共 ${t.alts.length} 个平台的版本，播放时自动择优`}>+{t.alts.length - 1}</span>
+            {/if}
             {#if t.availability === 'none'}<span class="badge">无版权</span>
             {:else if t.availability === 'paid'}<span class="badge vip">付费</span>
             {:else if t.fee === 1}<span class="badge vip">VIP</span>

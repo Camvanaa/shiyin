@@ -39,6 +39,8 @@ class Player {
 
   #audio: HTMLAudioElement;
   #urlCache = new Map<string, { url: string; level: string; trial: boolean; from: string; exp: number }>();
+  /** 同一曲目并发的解析请求去重（load / 预解析 / 重试可能同时触发） */
+  #inflight = new Map<string, Promise<{ url: string; level: string; trial: boolean; from: string }>>();
   #token = 0;
 
   constructor() {
@@ -225,6 +227,27 @@ class Player {
     const key = this.#cacheKey(t);
     const c = this.#urlCache.get(key);
     if (c && c.exp > Date.now()) return c;
+    // 同一曲目的并发解析合并成一次（否则 load + 预解析 + 重试会重复打后端）
+    const existing = this.#inflight.get(key);
+    if (existing) return existing;
+    const task = this.#resolveUrlOnce(t, key).finally(() => this.#inflight.delete(key));
+    this.#inflight.set(key, task);
+    return task;
+  }
+
+  async #resolveUrlOnce(t: Track, key: string): Promise<{ url: string; level: string; trial: boolean; from: string }> {
+    // 有已知的其它平台版本（来自聚合搜索合并）时，交给后端解析器择优：
+    // 依次试各版本，取第一个能完整播放的，避免前端逐个来回请求。
+    if (t.alts?.length && settings.autoFallback) {
+      try {
+        const m = await api.resolveWork(t.alts.map((a) => `${a.source}:${a.id}`), settings.playLevel);
+        const v = { url: m.url.url, level: m.url.level, trial: !!m.url.trial, from: m.track.source, exp: Date.now() + 15 * 60_000 };
+        this.#urlCache.set(key, v);
+        return v;
+      } catch {
+        /* 兜底：退回单版本解析 */
+      }
+    }
     try {
       const r = await api.songUrl(t.id, settings.playLevel, t.source);
       if (r.trial && settings.autoFallback) {
@@ -245,6 +268,15 @@ class Player {
 
   async #tryFallback(t: Track) {
     try {
+      // 已知其它版本时优先走解析器（可一次挑到能完整播放的版本）
+      if (t.alts?.length) {
+        const m = await api.resolveWork(t.alts.map((a) => `${a.source}:${a.id}`), settings.playLevel);
+        if (!m.url.trial) {
+          const v = { url: m.url.url, level: m.url.level, trial: false, from: m.track.source, exp: Date.now() + 15 * 60_000 };
+          this.#urlCache.set(this.#cacheKey(t), v);
+          return v;
+        }
+      }
       const m = await api.matchPlayable(t.name, artists(t), t.source, settings.playLevel, t.duration);
       const v = { url: m.url.url, level: m.url.level, trial: false, from: m.track.source, exp: Date.now() + 15 * 60_000 };
       this.#urlCache.set(this.#cacheKey(t), v);

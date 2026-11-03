@@ -382,6 +382,12 @@ img.fade.ok {
 .badge.vip {
   color: var(--accent);
 }
+/* 多版本标记：同一首歌在多个平台可用 */
+.badge.multi {
+  color: var(--fg-2);
+  background: var(--hover);
+  border-color: transparent;
+}
 
 .spinner {
   width: 16px;

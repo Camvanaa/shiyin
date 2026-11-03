@@ -574,7 +574,7 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 | **第 1 步** | P0 全部 5 项 + 3.2.6 Media Session | 一个可验证的 bugfix 提交，线上复验 | ✅ 已完成（见 3.8） |
 | **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 | ✅ 已完成（见 3.2.7–3.2.9） |
 | **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 | ✅ 已完成（见 3.9） |
-| **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） | ⏳ |
+| **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） | ✅ 已完成（见 3.10） |
 | **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 | ⏳ |
 | **第 6 步** | 3.4.4 平台集成 + P4 工程健康度 | 分平台发布 | ⏳ |
 
@@ -584,6 +584,46 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 - 前端：`npx svelte-check` 0 错 → `npx vite build` → 线上 Playwright 复测关键指标（首屏包体积、行高、来源切换、移动端）。
 - 后端：`cargo test -p shiyin-core` → 新增测试通过 → `cargo check -p shiyin-server` → CI 三流水线绿。
 - 部署：`gh run watch` → `./deploy/update-preview.sh <RUN_ID>` → `systemctl is-active shiyin` + 无 panic。
+
+### 3.10 第 4 步执行记录（Work/Rendition 合并 + 解析器下沉）
+
+**数据模型（`crates/core/src/model.rs`）**：
+
+- `Track` 新增 `isrc: Option<String>`（可选字段，Apple 已填充；网易/QQ/酷我列表接口暂不返回）。
+- 新增 `Work`：一个「作品」＝同一首歌在多个平台的版本集合，含稳定 `key`、展示用元数据、`renditions: Vec<Track>`（按推荐度排序）。
+- `Track::work_key()`：ISRC 优先，否则 `fp:规范化歌名|规范化主歌手`。
+- `normalize_title()`：全角转半角、小写、去括号内容、丢弃标点空格——用于跨平台名匹配。
+- `merge_works()`：**并查集**三步连边——① 同 ISRC；② 同指纹且时长接近（≤5s 或 ≤3%）；③ 一方带 ISRC、歌名相同、时长接近且**歌手名相似**（防不同歌手的同名 cover 误并）。这样 Apple（繁体歌手名 + ISRC）能与网易/QQ/酷我聚成同一首，而 Live 版、翻唱不会被吞。
+- 共 12 个新单测（normalize / ISRC 桥接 / 时长容差 / 不同歌手与 Live 版不合并 / 封面取最清晰 / 顺序稳定 / 序列化）。
+
+**解析器下沉（`crates/core/src/source.rs`）**：
+
+- `search_merged()`：聚合搜索后合并为作品。
+- `resolve_work()`：按可用性给版本打分，选最该播的。
+- `resolve_playable(candidates, level)`：依次取各版本播放地址，返回第一个能完整播放的；全失败时回退第一个能拿到地址的（试听）。
+
+**接口（新增，不动旧的）**：
+
+| 端 | 路由/命令 | 说明 |
+| --- | --- | --- |
+| Web | `GET /api/search/merged` | 返回合并后的 `Work[]` |
+| Web | `POST /api/work/resolve` | body `{candidates:[], level}` → 择优的 `{track, url}` |
+| Tauri | `search_merged` / `resolve_work` | 同上 |
+
+**前端**：
+
+- `app.svelte.ts`：音源为「全部」时搜索结果走 `searchMerged`，`workToTrack()` 把作品转成一行（门面取最可播版本，其余写入 `alts`）。
+- `player.svelte.ts`：解析时若曲目带 `alts`，调 `resolveWork` 让后端择优；新增**并发解析去重**（`#inflight`）——修复了"load + 预解析 + 重试同时触发导致同一版本解析 3 次"。
+- `TrackList`：多版本行显示 `+N` 徽标。
+- `vite.config.ts`：代理目标可用 `SHIYIN_API` 覆盖（本地联调用）。
+
+**实测（本机 debug server 127.0.0.1:6971 + vite dev）**：
+
+- `/api/search/merged?q=晴天`：周杰伦《晴天》由原来的 kuwo/qq/apple 三行合并为**一行（n=3）**，`key=isrc:twk970300503`；《晴天 (Live)》同理 n=3；同名不同歌手、Live 版各自独立。
+- 前端搜索结果 21 行（合并前更多），出现 `+2`/`+1` 多版本徽标。
+- 播放合并行时前端发出 `POST /api/work/resolve {candidates:[kuwo,qq,apple]}`，未登录时正确回退到 Apple 试听（`trial`）。
+- 并发去重后同一曲目只解析 1 次（另一条是下一首预解析，key 不同）。
+- `cargo test -p shiyin-core` 37 通过；`cargo check -p shiyin-server` / `-p shiyin-desktop` 通过；`svelte-check` 0 错。
 
 ### 3.9 第 3 步执行记录（桌面侧边栏 + 性能）
 

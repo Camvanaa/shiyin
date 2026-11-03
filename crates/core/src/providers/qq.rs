@@ -114,6 +114,7 @@ impl QQ {
             duration: u(first_str(item, &["interval", "duration"])) * 1000,
             fee: 0,
             availability: Availability::Ok,
+            isrc: None,
         }
     }
 

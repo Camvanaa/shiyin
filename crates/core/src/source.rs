@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::api::Netease;
 use crate::cache::DataCache;
 use crate::error::{Error, Result};
-use crate::model::{Captcha, Collection, CollectionKind, HomeFeed, Lyric, QrStart, QrState, Resolved, SongUrl, Track};
+use crate::model::{merge_works, Availability, Captcha, Collection, CollectionKind, HomeFeed, Lyric, QrStart, QrState, Resolved, SongUrl, Track, Work};
 
 pub type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
@@ -297,6 +297,65 @@ impl Sources {
             charts: interleave(charts),
             new_songs: interleave(new_songs),
         })
+    }
+
+    /// 聚合搜索并合并为作品：同一首歌的不同平台版本归并为一个 Work。
+    /// 这是"一首歌只出现一次"的入口。
+    pub async fn search_merged(&self, q: &str, limit: u32, offset: u32) -> Vec<Work> {
+        let tracks = self.search_all(q, limit, offset).await;
+        merge_works(tracks)
+    }
+
+    /// 在若干版本里挑出最该播放的那个：能完整播放优先，再按平台可用音质档位。
+    /// `level` 为期望音质，仅用于判断该平台是否声明支持。
+    pub fn resolve_work(&self, work: &Work, level: &str) -> Option<Track> {
+        let mut best: Option<(u8, &Track)> = None;
+        for t in &work.renditions {
+            let avail = match t.availability {
+                Availability::Ok => 0u8,
+                Availability::Vip => 10,
+                Availability::Paid => 20,
+                Availability::None => 30,
+            };
+            // 平台是否声明支持该音质档；不支持不惩罚，只影响同可用性下的排序
+            let supports = self
+                .get(&t.source)
+                .map(|s| s.levels().contains(&level))
+                .unwrap_or(false);
+            let score = avail + if supports { 0 } else { 1 };
+            if best.as_ref().is_none_or(|(bs, _)| score < *bs) {
+                best = Some((score, t));
+            }
+        }
+        best.map(|(_, t)| t.clone())
+    }
+
+    /// 解析器：给定若干候选版本（`(source, id)`，按推荐度排序），依次取播放地址，
+    /// 返回第一个**能完整播放**的版本及其地址。全部失败时回退到第一个能拿到地址的
+    /// （哪怕只是试听）。这是把"换源择优"从前端搬到 core 的入口。
+    pub async fn resolve_playable(&self, candidates: &[(String, String)], level: &str) -> Option<(Track, SongUrl)> {
+        let mut fallback: Option<(Track, SongUrl)> = None;
+        for (source, id) in candidates {
+            if source.is_empty() || id.is_empty() {
+                continue;
+            }
+            let Ok(s) = self.pick(source) else { continue };
+            let track = match self.cache.track(s.id(), id, || s.track(id)).await {
+                Ok(t) => (*t).clone(),
+                Err(_) => continue,
+            };
+            let url = match tokio::time::timeout(CANDIDATE_TIMEOUT, s.song_url(id, level)).await {
+                Ok(Ok(u)) if u.url.starts_with("http") => u,
+                _ => continue,
+            };
+            if url.trial.is_none() {
+                return Some((track, url));
+            }
+            if fallback.is_none() {
+                fallback = Some((track, url));
+            }
+        }
+        fallback
     }
 
     /// 在其它音源中按"歌名 + 歌手"寻找可播放的替代曲目（同音源失败时的换源兜底）。
