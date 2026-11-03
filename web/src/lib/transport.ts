@@ -1,6 +1,6 @@
 // 传输层：桌面版走 Tauri invoke，Web 版走 HTTP。界面代码只使用这里导出的 api。
 import type {
-  Account, Captcha, Collection, HomeFeed, JobDetail, JobSummary, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
+  Account, Captcha, Collection, HomeFeed, JobDetail, JobSummary, LibraryData, LibPlaylist, Lyric, MatchCandidate, NewJob, QrStart, QrState, Resolved,
   SongUrl, SourceInfo, SourceOption, Track, Work,
 } from './types';
 
@@ -52,6 +52,15 @@ export interface Api {
   /** 桌面版：选择下载目录 */
   pickDir?(): Promise<string | null>;
   defaultDir?(): Promise<string>;
+  /** 资料库 */
+  library(): Promise<LibraryData>;
+  toggleLike(track: Track, alts?: string[]): Promise<{ liked: boolean }>;
+  createPlaylist(name: string): Promise<LibPlaylist>;
+  playlistAdd(id: string, items: { track: Track; alts?: string[] }[]): Promise<{ added: number }>;
+  playlistUpdate(id: string, patch: { name?: string; remove?: string[] }): Promise<{ ok: boolean; removed: number; playlist: LibPlaylist | null }>;
+  playlistDelete(id: string): Promise<{ ok: boolean }>;
+  recordPlay(track: Track, alts?: string[]): Promise<void>;
+  clearPlays(): Promise<void>;
 }
 
 // ---------- HTTP ----------
@@ -150,6 +159,14 @@ const httpApi: Api = {
     a.click();
     a.remove();
   },
+  library: () => http('GET', '/library'),
+  toggleLike: (track, alts = []) => http('POST', '/library/likes', { track, alts }),
+  createPlaylist: (name) => http('POST', '/library/playlists', { name }),
+  playlistAdd: (id, items) => http('POST', `/library/playlists/${enc(id)}/tracks`, { items }),
+  playlistUpdate: (id, patch) => http('PATCH', `/library/playlists/${enc(id)}`, patch),
+  playlistDelete: (id) => http('DELETE', `/library/playlists/${enc(id)}`),
+  recordPlay: (track, alts = []) => http('POST', '/library/plays', { track, alts }),
+  clearPlays: () => http('DELETE', '/library/plays'),
 };
 
 // ---------- Tauri ----------
@@ -217,6 +234,14 @@ async function tauriApi(): Promise<Api> {
       return typeof r === 'string' ? r : null;
     },
     defaultDir: () => call('default_dir_cmd'),
+    library: () => call('library'),
+    toggleLike: (track, alts = []) => call('toggle_like', { track, alts }),
+    createPlaylist: (name) => call('create_playlist', { name }),
+    playlistAdd: (id, items) => call('playlist_add', { id, items }),
+    playlistUpdate: (id, patch) => call('playlist_update', { id, name: patch.name ?? null, remove: patch.remove ?? null }),
+    playlistDelete: (id) => call('playlist_delete', { id }),
+    recordPlay: (track, alts = []) => call('record_play', { track, alts }),
+    clearPlays: () => call('clear_plays'),
   };
 }
 

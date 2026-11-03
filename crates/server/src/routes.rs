@@ -8,7 +8,7 @@ use axum::extract::{Path as UrlPath, Query, Request, State};
 use axum::http::{header, HeaderValue, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -92,6 +92,12 @@ pub fn router(app: Arc<AppState>) -> Router {
         .route("/match", get(match_playable))
         .route("/match/all", get(match_candidates))
         .route("/work/resolve", post(resolve_playable))
+        .route("/library", get(library))
+        .route("/library/likes", post(toggle_like))
+        .route("/library/playlists", post(create_playlist))
+        .route("/library/playlists/{id}", patch(playlist_update).delete(playlist_delete))
+        .route("/library/playlists/{id}/tracks", post(playlist_add))
+        .route("/library/plays", post(record_play).delete(clear_plays))
         .route("/account", get(account).delete(logout))
         .route("/account/cookie", post(set_cookie))
         .route("/sources/{id}/cookie", post(set_source_cookie).delete(clear_source_cookie))
@@ -296,7 +302,6 @@ async fn match_candidates(State(c): State<Ctx>, Query(q): Query<MatchQ>) -> Json
 
 /// 解析器：给定若干候选版本（按推荐度排序的 `source:id` 列表），
 /// 依次取播放地址，返回第一个能完整播放的版本；否则返回第一个能拿到地址的（试听）。
-/// 前端点播放时直接调它，把"换源择优"从前端搬到 core。
 #[derive(Deserialize)]
 struct ResolveBody {
     /// 形如 ["qq:0039MnYb0qxYhV", "kuwo:228908"]，按推荐度排序
@@ -322,6 +327,136 @@ async fn resolve_playable(State(c): State<Ctx>, Json(mut b): Json<ResolveBody>) 
         return Err(ApiError(StatusCode::NOT_FOUND, "这些版本都拿不到播放地址".into()));
     };
     Ok(Json(json!({ "track": track, "url": url })))
+}
+
+// ---------------- 资料库 ----------------
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+/// 把请求里的 alts（"source:id"）转成 Track 的 alts，供解析器使用
+fn alts_of(t: &Track, extra: &[String]) -> Vec<String> {
+    let mut v: Vec<String> = Vec::new();
+    v.push(format!("{}:{}", t.source, t.id));
+    for a in extra {
+        if !v.contains(a) {
+            v.push(a.clone());
+        }
+    }
+    v
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LikeBody {
+    track: Track,
+    #[serde(default)]
+    alts: Vec<String>,
+}
+
+async fn library(State(c): State<Ctx>) -> R<Value> {
+    let lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    Ok(Json(json!({
+        "likes": lib.likes(),
+        "playlists": lib.playlists(),
+        "plays": lib.plays(),
+    })))
+}
+
+async fn toggle_like(State(c): State<Ctx>, Json(b): Json<LikeBody>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    let liked = lib.toggle_like(&b.track, alts_of(&b.track, &b.alts), now_ms())?;
+    Ok(Json(json!({ "liked": liked })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreatePlaylistBody {
+    name: String,
+}
+
+async fn create_playlist(State(c): State<Ctx>, Json(b): Json<CreatePlaylistBody>) -> R<Value> {
+    if b.name.trim().is_empty() {
+        return Err(ApiError(StatusCode::BAD_REQUEST, "歌单名不能为空".into()));
+    }
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    let pl = lib.create_playlist(&b.name, now_ms())?;
+    Ok(Json(json!(pl)))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistTracksBody {
+    /// 要加入歌单的曲目及其它版本
+    items: Vec<LikeBody>,
+}
+
+async fn playlist_add(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<PlaylistTracksBody>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    if lib.playlist(&id).is_none() {
+        return Err(ApiError(StatusCode::NOT_FOUND, "歌单不存在".into()));
+    }
+    let tracks: Vec<(Track, Vec<String>)> =
+        b.items.into_iter().map(|i| { let a = alts_of(&i.track, &i.alts); (i.track, a) }).collect();
+    let added = lib.add_to_playlist(&id, tracks, now_ms())?;
+    Ok(Json(json!({ "added": added })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistPatch {
+    name: Option<String>,
+    /// 要移除的曲目键（"source:id"）
+    #[serde(default)]
+    remove: Vec<String>,
+}
+
+async fn playlist_update(State(c): State<Ctx>, UrlPath(id): UrlPath<String>, Json(b): Json<PlaylistPatch>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    if lib.playlist(&id).is_none() {
+        return Err(ApiError(StatusCode::NOT_FOUND, "歌单不存在".into()));
+    }
+    if let Some(name) = b.name.filter(|n| !n.trim().is_empty()) {
+        lib.rename_playlist(&id, &name, now_ms())?;
+    }
+    let mut removed = 0;
+    for key in &b.remove {
+        if lib.remove_from_playlist(&id, key)? {
+            removed += 1;
+        }
+    }
+    let pl = lib.playlist(&id).cloned();
+    Ok(Json(json!({ "ok": true, "removed": removed, "playlist": pl })))
+}
+
+async fn playlist_delete(State(c): State<Ctx>, UrlPath(id): UrlPath<String>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    let removed = lib.delete_playlist(&id)?;
+    Ok(Json(json!({ "ok": removed })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayBody {
+    track: Track,
+    #[serde(default)]
+    alts: Vec<String>,
+}
+
+async fn record_play(State(c): State<Ctx>, Json(b): Json<PlayBody>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    lib.record_play(&b.track, alts_of(&b.track, &b.alts), now_ms())?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn clear_plays(State(c): State<Ctx>) -> R<Value> {
+    let mut lib = c.app.library.lock().unwrap_or_else(|e| e.into_inner());
+    lib.clear_plays()?;
+    Ok(Json(json!({ "ok": true })))
 }
 
 #[derive(Deserialize)]

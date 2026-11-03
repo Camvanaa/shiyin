@@ -3,6 +3,7 @@
   import Icon from './Icon.svelte';
   import { player } from '../lib/player.svelte';
   import { app } from '../lib/app.svelte';
+  import { library } from '../lib/library.svelte';
   import { artists, duration, img, sourceShort, trackLink } from '../lib/format';
   import { toast } from '../lib/toast.svelte';
   import type { Track } from '../lib/types';
@@ -109,6 +110,32 @@
   });
 
   let menu = $state<{ x: number; y: number; t: Track } | null>(null);
+  /** 加入歌单：弹出选择（用一个简单的 prompt 式选择，避免再引入一层菜单状态） */
+  function addToPlaylist(t: Track) {
+    menu = null;
+    const list = library.playlists;
+    if (!list.length) {
+      const name = prompt('还没有歌单，输入名称新建一个');
+      if (!name?.trim()) return;
+      library.createPlaylist(name.trim()).then((pl) => {
+        if (pl) library.addToPlaylist(pl.id, [t]).then((n) => n && toast.success(`已加入「${pl.name}」`));
+      });
+      return;
+    }
+    const names = list.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
+    const ans = prompt(`加入哪个歌单？\n${names}\n\n输入序号，或输入新名称新建`);
+    if (!ans?.trim()) return;
+    const idx = Number(ans.trim()) - 1;
+    if (Number.isInteger(idx) && idx >= 0 && idx < list.length) {
+      const pl = list[idx];
+      library.addToPlaylist(pl.id, [t]).then((n) => toast.info(n ? `已加入「${pl.name}」` : '已在歌单中'));
+    } else {
+      library.createPlaylist(ans.trim()).then((pl) => {
+        if (pl) library.addToPlaylist(pl.id, [t]).then(() => toast.success(`已创建「${pl.name}」并加入`));
+      });
+    }
+  }
+
   const isMobile = () => matchMedia('(max-width: 760px)').matches;
   function openMenu(e: MouseEvent, t: Track) {
     e.preventDefault();
@@ -212,6 +239,10 @@
     <button role="menuitem" onclick={() => player.play(t)}><Icon name="play" />立即播放</button>
     <button role="menuitem" onclick={() => player.playNext(t)}><Icon name="queue" />下一首播放</button>
     <button role="menuitem" onclick={() => player.enqueue([t])}><Icon name="plus" />添加到播放列表</button>
+    <button role="menuitem" onclick={() => library.toggleLike(t)}>
+      <Icon name={library.isLiked(t) ? 'heartFill' : 'heart'} />{library.isLiked(t) ? '取消喜欢' : '喜欢'}
+    </button>
+    <button role="menuitem" onclick={() => addToPlaylist(t)}><Icon name="folderPlus" />加入歌单</button>
     <hr />
     <button role="menuitem" onclick={() => app.download([t], t.name, { subtitle: artists(t), cover: t.cover })}
       ><Icon name="download" />下载</button

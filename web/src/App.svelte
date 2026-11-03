@@ -15,6 +15,8 @@
   import RecentView from './components/RecentView.svelte';
   import SettingsPage from './components/SettingsPage.svelte';
   import DownloadsPage from './components/DownloadsPage.svelte';
+  import LibraryView from './components/LibraryView.svelte';
+  import PlaylistView from './components/PlaylistView.svelte';
 
   import { app } from './lib/app.svelte';
   import { player } from './lib/player.svelte';
@@ -98,6 +100,10 @@
         return '设置';
       case 'downloads':
         return '下载';
+      case 'library':
+        return '资料库';
+      case 'playlist':
+        return '歌单';
     }
   });
 </script>
@@ -200,6 +206,10 @@
             <SettingsPage />
           {:else if v.kind === 'downloads'}
             <DownloadsPage />
+          {:else if v.kind === 'library'}
+            <LibraryView {scroller} />
+          {:else if v.kind === 'playlist'}
+            <PlaylistView data={v.data} {scroller} />
           {:else if v.kind === 'collection'}
             {@const c = v.data}
             <CollectionView

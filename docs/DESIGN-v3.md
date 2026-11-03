@@ -575,7 +575,7 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 | **第 2 步** | 3.2.1 设计令牌 → 3.2.2 来源筛选 → 3.2.4 焦点 → 3.2.5 状态反馈 | 视觉/交互一致性提交 | ✅ 已完成（见 3.2.7–3.2.9） |
 | **第 3 步** | 3.2.3 桌面侧边栏 + P2 性能 | 布局与性能提交 | ✅ 已完成（见 3.9） |
 | **第 4 步** | 3.4.1 Work/Rendition + 3.4.2 解析器下沉 | 后端重构（对外接口新增，不破坏旧的） | ✅ 已完成（见 3.10） |
-| **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 | ⏳ |
+| **第 5 步** | 3.4.3 资料库 + 前后端接入 | 新功能 | ✅ 已完成（见 3.11） |
 | **第 6 步** | 3.4.4 平台集成 + P4 工程健康度 | 分平台发布 | ⏳ |
 
 每一步完成都把结论回写本文档（第 3 部分按阶段打勾）。
@@ -584,6 +584,50 @@ library.db: likes | playlists | playlist_items | works | renditions | plays | do
 - 前端：`npx svelte-check` 0 错 → `npx vite build` → 线上 Playwright 复测关键指标（首屏包体积、行高、来源切换、移动端）。
 - 后端：`cargo test -p shiyin-core` → 新增测试通过 → `cargo check -p shiyin-server` → CI 三流水线绿。
 - 部署：`gh run watch` → `./deploy/update-preview.sh <RUN_ID>` → `systemctl is-active shiyin` + 无 panic。
+
+### 3.11 第 5 步执行记录（资料库）
+
+**选型：JSON 文件而非 SQLite**
+
+设计文档 3.4.3 原写"SQLite（rusqlite bundled）"。实现时改为**单个 JSON 文件 + 原子写**（写 `.tmp` 再 rename），理由：
+
+- 数据量是个人级（喜欢 + 歌单 + 播放记录，数千条量级），JSON 完全够用；
+- 避免为 Windows / Android 交叉编译引入 SQLite 的 bundled C 依赖（编译时间与体积）；
+- 与现有 `CredentialStore` 的落盘方式一致，风格统一。
+- 若将来需要"1 万首资料库 + 复杂查询"，再换成 SQLite，`Library` 的接口不变。
+
+**core（`crates/core/src/library.rs`）**：
+
+- `LibTrack`：资料库中的曲目快照（含 `isrc`、`alts`、`addedAt`），可还原为 `Track`。
+- `Playlist`：自建歌单（id/name/cover/tracks/时间戳）。
+- `PlayRecord`：播放记录（曲目 + 最近播放时间 + 次数）。
+- `Library`：加载/原子落盘 + 喜欢切换、歌单增删改、加曲去重、播放记录去重排序（上限 500 条）。损坏文件回退为空。
+- 7 个单测（切换喜欢、歌单 CRUD 与去重、播放记录去重、损坏回退、快照往返）。
+
+**接口（新增）**：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/library` | 返回 `{likes, playlists, plays}` |
+| POST | `/api/library/likes` | 切换喜欢（幂等 toggle） |
+| POST | `/api/library/playlists` | 新建歌单 |
+| POST | `/api/library/playlists/{id}/tracks` | 加曲（去重） |
+| PATCH | `/api/library/playlists/{id}` | 改名 / 移除曲目 |
+| DELETE | `/api/library/playlists/{id}` | 删除歌单 |
+| POST | `/api/library/plays` | 记一次播放 |
+| DELETE | `/api/library/plays` | 清空播放记录 |
+
+Tauri 侧同名命令（`library`/`toggle_like`/`create_playlist`/`playlist_add`/`playlist_update`/`playlist_delete`/`record_play`/`clear_plays`）。服务端 `AppState` 与桌面 `Ctx` 各持一个 `Mutex<Library>`。
+
+**前端**：
+
+- `lib/library.svelte.ts`：资料库镜像 store，喜欢做**乐观更新**（失败回滚），播放上报**30 秒节流**。
+- `LibraryView.svelte`：三个分区（喜欢的歌曲 / 歌单 / 播放记录），空态各带引导；歌单网格卡片。
+- `PlaylistView.svelte`：歌单详情（播放/随机/改名/删除、移除曲目）。
+- `TrackList` 右键菜单新增「喜欢 / 加入歌单」；`Icon` 新增 heart / heartFill / library / folderPlus。
+- 侧边栏新增「资料库」入口（桌面）、移动端标题同步；`player` 播放时同时写入资料库的播放记录。
+
+**实测（本机 debug server + vite dev）**：喜欢/取消喜欢、新建歌单、加曲去重、改名、删曲、删歌单、播放记录去重排序全部正确；**重启服务后数据仍在**（喜欢 1 + 播放 1 保留）；UI 右键→喜欢→资料库出现、右键→加入歌单→网格卡片出现。`cargo test -p shiyin-core` 44 通过；server/desktop `cargo check` 通过；`svelte-check` 0 错。
 
 ### 3.10 第 4 步执行记录（Work/Rendition 合并 + 解析器下沉）
 

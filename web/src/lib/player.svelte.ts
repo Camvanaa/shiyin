@@ -6,6 +6,7 @@ import { artists, img } from './format';
 import type { Track } from './types';
 import { extractTint } from './tint';
 import { recordPlay } from './recent.svelte';
+import { library } from './library.svelte';
 import type { MatchCandidate } from './types';
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -51,7 +52,10 @@ class Player {
       this.playing = true;
       this.#startTicker();
       this.#syncPlaybackState();
-      if (this.current) recordPlay(this.current);
+      if (this.current) {
+        recordPlay(this.current);
+        library.recordPlay(this.current);
+      }
     });
     a.addEventListener('pause', () => {
       this.playing = false;

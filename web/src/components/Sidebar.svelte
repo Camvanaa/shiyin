@@ -13,12 +13,14 @@
     { id: 'search', label: '搜索', icon: 'search', on: () => app.openSearch() },
   ]);
   const sectionB = $derived<Item[]>([
+    { id: 'library', label: '资料库', icon: 'library', on: () => app.openLibrary() },
     { id: 'history', label: '最近播放', icon: 'clock', on: () => app.openHistory() },
     { id: 'downloads', label: '下载', icon: 'download', on: () => app.openTab('downloads'), badge: app.activeJobs },
   ]);
 
   const cur = $derived(app.view.kind);
-  const isOn = (id: string) => (id === 'search' ? cur === 'search' || cur === 'search-home' : cur === id);
+  const isOn = (id: string) =>
+    id === 'search' ? cur === 'search' || cur === 'search-home' : id === 'library' ? cur === 'library' || cur === 'playlist' : cur === id;
 </script>
 
 <aside class="sidebar" aria-label="侧边导航">

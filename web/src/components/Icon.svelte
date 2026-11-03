@@ -34,9 +34,13 @@
     expand: '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>',
     subtitles: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M7 12.5h4M13 12.5h4M7 15.5h7"/>',
     key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8m-3 3 2 2m-4 0 1.5 1.5"/>',
+    heart: '<path d="M12 20s-7-4.4-7-9.5A4 4 0 0 1 12 7a4 4 0 0 1 7 3.5C19 15.6 12 20 12 20z"/>',
+    library: '<path d="M5 5v14M9.5 4.5v15M14 6l4 13"/>',
+    folderPlus: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11.5v5M9.5 14h5"/>',
   } as const;
 
   const filled = {
+    heartFill: '<path d="M12 20.4S3.5 15.3 3.5 9.7A4.7 4.7 0 0 1 12 6.5a4.7 4.7 0 0 1 8.5 3.2c0 5.6-8.5 10.7-8.5 10.7z"/>',
     play: '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/>',
     pause: '<rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/>',
     next: '<path d="M4 6.2v11.6a1 1 0 0 0 1.5.86L14 13.4V17.8a1 1 0 0 0 1.5.86l7-5.8a1 1 0 0 0 0-1.72l-7-5.8A1 1 0 0 0 14 6.2v4.4L5.5 5.34A1 1 0 0 0 4 6.2z"/>',

@@ -4,7 +4,8 @@ import { remember } from './history.svelte';
 import { toast } from './toast.svelte';
 import { player } from './player.svelte';
 import { artists, sourceShort } from './format';
-import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track, Work } from './types';
+import { library } from './library.svelte';
+import type { Account, Collection, HomeFeed, JobSummary, SourceInfo, Track, Work, LibPlaylist } from './types';
 
 /** 合并结果 → 一行曲目：取"最可能完整播放"的版本为门面，其余放进 alts 供解析器择优。 */
 function workToTrack(w: Work): Track {
@@ -27,7 +28,10 @@ export type View =
   /** 移动端：设置页（桌面为 Sheet） */
   | { kind: 'settings' }
   /** 移动端：下载页（桌面为 Sheet） */
-  | { kind: 'downloads' };
+  | { kind: 'downloads' }
+  /** 资料库：喜欢 / 歌单 / 播放记录 */
+  | { kind: 'library' }
+  | { kind: 'playlist'; data: LibPlaylist };
 
 export type Sheet = null | 'settings' | 'login' | 'downloads' | 'queue' | 'token';
 
@@ -65,6 +69,7 @@ class AppState {
       api.sources().then((l) => (this.sources = l)).catch(() => {});
       this.loadHome();
       player.restore().catch(() => {});
+      library.load();
       await this.refreshAccount();
       this.#startJobs();
       api.setConcurrency(settings.concurrency).catch(() => {});
@@ -187,6 +192,19 @@ class AppState {
     this.sheet = null;
     if (this.view.kind === 'history') return;
     this.#go({ kind: 'history' });
+  }
+
+  /** 资料库页 */
+  openLibrary() {
+    this.sheet = null;
+    if (this.view.kind === 'library') return;
+    this.#go({ kind: 'library' });
+  }
+
+  /** 打开某个自建歌单 */
+  openPlaylist(data: LibPlaylist) {
+    this.sheet = null;
+    this.#go({ kind: 'playlist', data });
   }
 
   /** 移动端：进入搜索入口页 */

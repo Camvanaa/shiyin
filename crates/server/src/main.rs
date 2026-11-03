@@ -2,15 +2,17 @@ mod routes;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use shiyin_core::store::CredentialStore;
-use shiyin_core::{Netease, Sources};
+use shiyin_core::{Library, Netease, Sources};
 
 pub struct AppState {
     pub api: Netease,
     pub sources: Sources,
     pub store: CredentialStore,
+    /// 资料库（喜欢、歌单、播放记录）。写操作频繁但量小，用 Mutex 保护。
+    pub library: Mutex<Library>,
     pub token: Option<String>,
     pub tmp: PathBuf,
 }
@@ -62,7 +64,8 @@ async fn main() {
     let sources = Sources::new(api.clone());
     sources.restore_cookies(|id| store.load_for(id));
     sources.restore_options(|id, key| store.load_option(id, key));
-    let state = Arc::new(AppState { api, sources, store, token, tmp });
+    let library = Mutex::new(Library::new(&dir));
+    let state = Arc::new(AppState { api, sources, store, library, token, tmp });
     let app = routes::router(state);
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("端口被占用");

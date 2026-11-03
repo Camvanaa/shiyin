@@ -40,6 +40,51 @@ export interface Work {
   renditions: Track[];
 }
 
+/** 资料库中保存的曲目快照 */
+export interface LibTrack {
+  id: string;
+  source: string;
+  name: string;
+  artists: Artist[];
+  album: string;
+  albumId: string;
+  cover: string;
+  duration: number;
+  isrc?: string | null;
+  alts: string[];
+  addedAt: number;
+}
+
+export interface LibPlaylist {
+  id: string;
+  name: string;
+  description: string;
+  cover: string;
+  createdAt: number;
+  updatedAt: number;
+  tracks: LibTrack[];
+}
+
+export interface LibPlay {
+  id: string;
+  source: string;
+  name: string;
+  artists: Artist[];
+  album: string;
+  albumId: string;
+  cover: string;
+  duration: number;
+  addedAt: number;
+  playedAt: number;
+  count: number;
+}
+
+export interface LibraryData {
+  likes: LibTrack[];
+  playlists: LibPlaylist[];
+  plays: LibPlay[];
+}
+
 export interface Collection {
   kind: 'playlist' | 'album' | 'toplist';
   id: string;

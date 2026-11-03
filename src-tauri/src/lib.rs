@@ -19,6 +19,8 @@ struct Ctx {
     api: Netease,
     sources: Sources,
     store: CredentialStore,
+    /// 资料库：写操作需可变，用 Mutex 保护（Tauri 命令是并发调用的）
+    library: std::sync::Mutex<shiyin_core::Library>,
     jobs: JobManager,
 }
 
@@ -173,6 +175,105 @@ async fn resolve_work(s: State<'_, Ctx>, candidates: Vec<String>, level: String)
         .await
         .ok_or_else(|| "这些版本都拿不到播放地址".to_owned())?;
     Ok(json!({ "track": track, "url": url }))
+}
+
+// ---------------- 资料库 ----------------
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn alts_of(t: &Track, extra: &[String]) -> Vec<String> {
+    let mut v = vec![format!("{}:{}", t.source, t.id)];
+    for a in extra {
+        if !v.contains(a) {
+            v.push(a.clone());
+        }
+    }
+    v
+}
+
+#[tauri::command]
+fn library(s: State<'_, Ctx>) -> Value {
+    let lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    json!({ "likes": lib.likes(), "playlists": lib.playlists(), "plays": lib.plays() })
+}
+
+#[tauri::command]
+fn toggle_like(s: State<'_, Ctx>, track: Track, alts: Option<Vec<String>>) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    let liked = lib.toggle_like(&track, alts_of(&track, &alts.unwrap_or_default()), now_ms()).map_err(e)?;
+    Ok(json!({ "liked": liked }))
+}
+
+#[tauri::command]
+fn create_playlist(s: State<'_, Ctx>, name: String) -> R<Value> {
+    if name.trim().is_empty() {
+        return Err("歌单名不能为空".into());
+    }
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    let pl = lib.create_playlist(&name, now_ms()).map_err(e)?;
+    Ok(json!(pl))
+}
+
+#[tauri::command]
+fn playlist_add(s: State<'_, Ctx>, id: String, items: Vec<Value>) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    if lib.playlist(&id).is_none() {
+        return Err("歌单不存在".into());
+    }
+    let mut tracks = Vec::new();
+    for it in items {
+        let track: Track = serde_json::from_value(it.get("track").cloned().unwrap_or(Value::Null)).map_err(|e| e.to_string())?;
+        let alts: Vec<String> = it.get("alts").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
+        let a = alts_of(&track, &alts);
+        tracks.push((track, a));
+    }
+    let added = lib.add_to_playlist(&id, tracks, now_ms()).map_err(e)?;
+    Ok(json!({ "added": added }))
+}
+
+#[tauri::command]
+fn playlist_update(s: State<'_, Ctx>, id: String, name: Option<String>, remove: Option<Vec<String>>) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    if lib.playlist(&id).is_none() {
+        return Err("歌单不存在".into());
+    }
+    if let Some(n) = name.filter(|n| !n.trim().is_empty()) {
+        lib.rename_playlist(&id, &n, now_ms()).map_err(e)?;
+    }
+    let mut removed = 0;
+    for k in remove.unwrap_or_default() {
+        if lib.remove_from_playlist(&id, &k).map_err(e)? {
+            removed += 1;
+        }
+    }
+    let pl = lib.playlist(&id).cloned();
+    Ok(json!({ "ok": true, "removed": removed, "playlist": pl }))
+}
+
+#[tauri::command]
+fn playlist_delete(s: State<'_, Ctx>, id: String) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    let removed = lib.delete_playlist(&id).map_err(e)?;
+    Ok(json!({ "ok": removed }))
+}
+
+#[tauri::command]
+fn record_play(s: State<'_, Ctx>, track: Track, alts: Option<Vec<String>>) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    lib.record_play(&track, alts_of(&track, &alts.unwrap_or_default()), now_ms()).map_err(e)?;
+    Ok(json!({ "ok": true }))
+}
+
+#[tauri::command]
+fn clear_plays(s: State<'_, Ctx>) -> R<Value> {
+    let mut lib = s.library.lock().unwrap_or_else(|e| e.into_inner());
+    lib.clear_plays().map_err(e)?;
+    Ok(json!({ "ok": true }))
 }
 
 #[tauri::command]
@@ -426,7 +527,6 @@ pub fn run() {
             sources.restore_cookies(|id| store.load_for(id));
             sources.restore_options(|id, key| store.load_option(id, key));
             let jobs = JobManager::new(sources.clone(), 3, None);
-
             // 任务变化推送给界面，限制为每 200ms 最多一次
             let mut rx = jobs.subscribe();
             let handle = app.handle().clone();
@@ -439,7 +539,7 @@ pub fn run() {
                 }
             });
 
-            app.manage(Ctx { api, sources, store, jobs });
+            app.manage(Ctx { api, sources, store, library: std::sync::Mutex::new(shiyin_core::Library::new(&data)), jobs });
             #[cfg(desktop)]
             desktop::setup(app)?;
 
@@ -459,6 +559,14 @@ pub fn run() {
             search,
             search_merged,
             resolve_work,
+            library,
+            toggle_like,
+            create_playlist,
+            playlist_add,
+            playlist_update,
+            playlist_delete,
+            record_play,
+            clear_plays,
             song,
             song_url,
             lyric,
